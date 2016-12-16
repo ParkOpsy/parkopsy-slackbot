@@ -9,7 +9,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: 'xoxb-117648373715-MuO7MvouoxQkDmXyyXTsFzoN'
+    token: ''
 }).startRTM();
 
 
@@ -69,9 +69,8 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
     });
 });
 
-
-// controller.hears(['free (\d+)'], 'direct_message', function (bot, message) {
-controller.hears(['free'], 'direct_message', function (bot, message) {
+// controller.hears(['free'], 'direct_message,direct_mention,mention', function (bot, message) {
+controller.hears(['free (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
 
     controller.storage.users.get(message.user, function (err, user) {
         console.log('first');
@@ -85,16 +84,24 @@ controller.hears(['free'], 'direct_message', function (bot, message) {
         console.log('second');
         console.log(user.name);
         console.log(user.parking_number);
-        if (typeof user.parking_number != 'undefined') {
+        if (typeof (user.parking_number) == 'undefined') {
             bot.reply('Register park number. /n Type "ready YOUR-PARK-NUMBER"');
             return;
         }
         var days = message.match[1];
+
         var to;
         if (!days){
              to ="today";
         }else{
             to = "today"+days;
+        }
+
+        if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates')){
+            user.status.isbusy=true;
+            user.status.free_dates.push(generateDate(days));
+        }else{
+//move from bottom
         }
         user.status = {
                 isbusy: true,
@@ -111,6 +118,16 @@ controller.hears(['free'], 'direct_message', function (bot, message) {
         })
     });
 });
+
+function generateDate(number) {
+    if (!number){
+        number=0;
+    }
+    return {
+        from: "today",
+        to: "today + number"
+    }
+}
 
 controller.hears(['park me'], 'direct_message', function (bot, message) {
     controller.storage.users.all(function (err, all_user_data) {
