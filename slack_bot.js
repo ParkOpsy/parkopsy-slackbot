@@ -109,14 +109,19 @@ var j = schedule.scheduleJob('0 0 * * * *', function(){
                     }
                 }
             }
+            controller.storage.users.save(all_user_data, function (err, id) {
+
+            })
         }
     });
 
     controller.storage.teams.all(function(err, all_team_data) {
-        if (all_team_data && all_team_data.users)
-        {
-            all_team_data.users = [];
-        }
+        all_team_data = {
+            users: []
+        };
+        controller.storage.teams.save(all_team_data, function (err, id) {
+
+        })
     });
 
 });
