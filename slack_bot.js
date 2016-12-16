@@ -86,7 +86,8 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
                     all_user_data[i].status.before = 'today';
                     controller.storage.users.save(all_user_data[i], function (err, id) {
                         bot.reply(message, 'You can park at ' + all_user_data[i].parking_number);
-                    })
+                    });
+                    return;
                 }
             }
         })
