@@ -7,7 +7,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: ''
+    token: 'xoxb-117648373715-MuO7MvouoxQkDmXyyXTsFzoN'
 }).startRTM();
 
 
@@ -81,7 +81,7 @@ controller.hears(['wfh'], 'direct_message', function (bot, message) {
 controller.hears(['park me'], 'direct_message', function (bot, message) {
         controller.storage.users.all(function (err, all_user_data) {
             for (var i in all_user_data) {
-                if (all_user_data[i] && !all_user_data[i].status.isbusy) {
+                if (all_user_data[i] && all_user_data[i].hasOwnProperty('status') && !all_user_data[i].status.isbusy) {
                     all_user_data[i].status.isbusy = true;
                     all_user_data[i].status.before = 'today';
                     controller.storage.users.save(all_user_data[i], function (err, id) {
@@ -90,6 +90,22 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
                     return;
                 }
             }
+
+            // couldn't find anything, adding to queue
+            if (!controller.storage.teams.get(message.team_id)) {
+                team = {
+                    id : message.team_id,
+                    userQueue : [message.user]
+                };
+            } else {
+                team = controller.storage.teams.get(message.team_id);
+                team.userQueue.push(message.user);
+               // console.log('Added user to queue : ' + team);
+            }
+            controller.storage.teams.save(team, function(err, id) {
+                bot.reply(message, 'Sry no free spaces but u re in a queue now my dude : ' + team.userQueue);
+            });
+
         })
 });
 
