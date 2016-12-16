@@ -97,22 +97,28 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
 
 var j = schedule.scheduleJob('0 0 * * * *', function(){
     controller.storage.users.all(function (err, all_user_data) {
-        for (var user_index in all_user_data) {
-            all_user_data[user_index].desire = false;
-            for (var date_index in all_user_data[user_index].status.free_dates) {
-                if (validateDate(
-                        currentdate,
-                        all_user_data[user_index].status.free_dates[date_index].from,
-                        all_user_data[user_index].status.free_dates[date_index].to)) {
-                    all_user_data[user_index].status.busy = false;
+        if (all_user_data) {
+            for (var user_index in all_user_data) {
+                all_user_data[user_index].desire = false;
+                for (var date_index in all_user_data[user_index].status.free_dates) {
+                    if (validateDate(
+                            currentdate,
+                            all_user_data[user_index].status.free_dates[date_index].from,
+                            all_user_data[user_index].status.free_dates[date_index].to)) {
+                        all_user_data[user_index].status.busy = false;
+                    }
                 }
             }
         }
     });
 
     controller.storage.teams.all(function(err, all_team_data) {
-       all_team_data.users = [];
+        if (all_team_data && all_team_data.users)
+        {
+            all_team_data.users = [];
+        }
     });
+
 });
 
 function validateDate(date, from, to) {
