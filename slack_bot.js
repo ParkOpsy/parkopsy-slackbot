@@ -3,6 +3,7 @@ var os = require('os');
 
 var controller = Botkit.slackbot({
     debug: true,
+    json_file_store: './lib/storage/data'
 });
 
 var bot = controller.spawn({
@@ -38,6 +39,11 @@ controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_men
         if (!user) {
             user = {
                 id: message.user,
+                parking_number: 10,
+                status: {
+                    isbusy: true,
+                    before: 'infinite'
+                }
             };
         }
         user.name = name;
@@ -45,6 +51,33 @@ controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_men
             bot.reply(message, 'Got it. I will call you ' + user.name + ' from now on.');
         });
     });
+});
+
+
+
+controller.hears(['wfh'], 'direct_message', function (bot, message) {
+
+        controller.storage.users.get(message.user, function (err, user) {
+            user.status.isbusy = false;
+            controller.storage.users.save(user, function(err, id) {
+
+            })
+        });
+
+    });
+
+controller.hears(['park me'], 'direct_message', function (bot, message) {
+        controller.storage.users.all(function (result) {
+            for (var i in result) {
+                if (!i.status.isbusy) {
+                    i.status.isbusy = true;
+                    i.status.before = 'today';
+                    controller.storage.users.save(i, function (err, id) {
+
+                    })
+                }
+            }
+        })
 });
 
 controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention,mention', function(bot, message) {
