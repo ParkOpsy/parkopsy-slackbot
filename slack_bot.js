@@ -1,3 +1,5 @@
+var schedule = require("node-schedule");
+
 var Botkit = require('./lib/Botkit.js');
 var os = require('os');
 
@@ -92,6 +94,30 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
             }
         })
 });
+
+var j = schedule.scheduleJob('42 * * * *', function(){
+    controller.storage.users.all(function (err, all_user_data) {
+        for (var user_index in all_user_data) {
+            all_user_data[user_index].desire = false;
+            for (var date_index in all_user_data[user_index].status.free_dates) {
+                if (validateDate(
+                        currentdate,
+                        all_user_data[user_index].status.free_dates[date_index].from,
+                        all_user_data[user_index].status.free_dates[date_index].to)) {
+                    all_user_data[user_index].status.busy = false;
+                }
+            }
+        }
+    });
+
+    controller.storage.teams.all(function(err, all_team_data) {
+       all_team_data.users = [];
+    });
+});
+
+function validateDate(date, from, to) {
+    return true;
+}
 
 controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention,mention', function(bot, message) {
 
