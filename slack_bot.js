@@ -7,24 +7,24 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: ''
+    token: 'xoxb-117648373715-MuO7MvouoxQkDmXyyXTsFzoN'
 }).startRTM();
 
 
-controller.hears(['hello', 'hi'], 'direct_message,direct_mention,mention', function(bot, message) {
+controller.hears(['hello', 'hi'], 'direct_message,direct_mention,mention', function (bot, message) {
 
     bot.api.reactions.add({
         timestamp: message.ts,
         channel: message.channel,
         name: 'robot_face',
-    }, function(err, res) {
+    }, function (err, res) {
         if (err) {
             bot.botkit.log('Failed to add emoji reaction :(', err);
         }
     });
 
 
-    controller.storage.users.get(message.user, function(err, user) {
+    controller.storage.users.get(message.user, function (err, user) {
         if (user && user.name) {
             bot.reply(message, 'Hello ' + user.name + '!!');
         } else {
@@ -33,16 +33,16 @@ controller.hears(['hello', 'hi'], 'direct_message,direct_mention,mention', funct
     });
 });
 
-controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_mention,mention', function(bot, message) {
+controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
     var name = message.match[1];
-    controller.storage.users.get(message.user, function(err, user) {
+    controller.storage.users.get(message.user, function (err, user) {
         if (!user) {
             user = {
                 id: message.user
             };
         }
         user.name = name;
-        controller.storage.users.save(user, function(err, id) {
+        controller.storage.users.save(user, function (err, id) {
             bot.reply(message, 'Got it. I will call you ' + user.name + ' from now on.');
         });
     });
@@ -68,45 +68,77 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
 });
 
 
-controller.hears(['wfh'], 'direct_message', function (bot, message) {
-        controller.storage.users.get(message.user, function (err, user) {
-            user.status.isbusy = false;
-            controller.storage.users.save(user, function(err, id) {
-                bot.reply(message, 'Got it. Your parking place is free for today, ' + user.name);
-            })
-        });
+// controller.hears(['free (\d+)'], 'direct_message', function (bot, message) {
+controller.hears(['free'], 'direct_message', function (bot, message) {
 
-    });
+    controller.storage.users.get(message.user, function (err, user) {
+        console.log('first');
+        console.log(user.name);
+        console.log(user.parking_number);
+        if (!user) {
+            user = {
+                id: message.user
+            };
+        }
+        console.log('second');
+        console.log(user.name);
+        console.log(user.parking_number);
+        if (typeof user.parking_number != 'undefined') {
+            bot.reply('Register park number. /n Type "ready YOUR-PARK-NUMBER"');
+            return;
+        }
+        var days = message.match[1];
+        var to;
+        if (!days){
+             to ="today";
+        }else{
+            to = "today"+days;
+        }
+        user.status = {
+                isbusy: true,
+                free_dates: [
+                    {
+                        from: "today",
+                        to: to
+                    }
+                ]
+            };
 
-controller.hears(['park me'], 'direct_message', function (bot, message) {
-        controller.storage.users.all(function (err, all_user_data) {
-            for (var i in all_user_data) {
-                if (all_user_data[i] && !all_user_data[i].status.isbusy) {
-                    all_user_data[i].status.isbusy = true;
-                    all_user_data[i].status.before = 'today';
-                    controller.storage.users.save(all_user_data[i], function (err, id) {
-                        bot.reply(message, 'You can park at ' + all_user_data[i].parking_number);
-                    });
-                    return;
-                }
-            }
+        controller.storage.users.save(user, function (err, id) {
+            bot.reply(message, 'Got it. Your parking place is free for today, ' + user.name);
         })
+    });
 });
 
-controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention,mention', function(bot, message) {
+controller.hears(['park me'], 'direct_message', function (bot, message) {
+    controller.storage.users.all(function (err, all_user_data) {
+        for (var i in all_user_data) {
+            if (all_user_data[i] && !all_user_data[i].status.isbusy) {
+                all_user_data[i].status.isbusy = true;
+                all_user_data[i].status.before = 'today';
+                controller.storage.users.save(all_user_data[i], function (err, id) {
+                    bot.reply(message, 'You can park at ' + all_user_data[i].parking_number);
+                });
+                return;
+            }
+        }
+    })
+});
 
-    controller.storage.users.get(message.user, function(err, user) {
+controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention,mention', function (bot, message) {
+
+    controller.storage.users.get(message.user, function (err, user) {
         if (user && user.name) {
             bot.reply(message, 'Your name is ' + user.name);
         } else {
-            bot.startConversation(message, function(err, convo) {
+            bot.startConversation(message, function (err, convo) {
                 if (!err) {
                     convo.say('I do not know your name yet!');
-                    convo.ask('What should I call you?', function(response, convo) {
+                    convo.ask('What should I call you?', function (response, convo) {
                         convo.ask('You want me to call you `' + response.text + '`?', [
                             {
                                 pattern: 'yes',
-                                callback: function(response, convo) {
+                                callback: function (response, convo) {
                                     // since no further messages are queued after this,
                                     // the conversation will end naturally with status == 'completed'
                                     convo.next();
@@ -114,14 +146,14 @@ controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention
                             },
                             {
                                 pattern: 'no',
-                                callback: function(response, convo) {
+                                callback: function (response, convo) {
                                     // stop the conversation. this will cause it to end with status == 'stopped'
                                     convo.stop();
                                 }
                             },
                             {
                                 default: true,
-                                callback: function(response, convo) {
+                                callback: function (response, convo) {
                                     convo.repeat();
                                     convo.next();
                                 }
@@ -132,22 +164,21 @@ controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention
 
                     }, {'key': 'nickname'}); // store the results in a field called nickname
 
-                    convo.on('end', function(convo) {
+                    convo.on('end', function (convo) {
                         if (convo.status == 'completed') {
                             bot.reply(message, 'OK! I will update my dossier...');
 
-                            controller.storage.users.get(message.user, function(err, user) {
+                            controller.storage.users.get(message.user, function (err, user) {
                                 if (!user) {
                                     user = {
                                         id: message.user,
                                     };
                                 }
                                 user.name = convo.extractResponse('nickname');
-                                controller.storage.users.save(user, function(err, id) {
+                                controller.storage.users.save(user, function (err, id) {
                                     bot.reply(message, 'Got it. I will call you ' + user.name + ' from now on.');
                                 });
                             });
-
 
 
                         } else {
@@ -162,43 +193,43 @@ controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention
 });
 
 
-controller.hears(['shutdown'], 'direct_message,direct_mention,mention', function(bot, message) {
+controller.hears(['shutdown'], 'direct_message,direct_mention,mention', function (bot, message) {
 
-    bot.startConversation(message, function(err, convo) {
+    bot.startConversation(message, function (err, convo) {
 
         convo.ask('Are you sure you want me to shutdown?', [
             {
                 pattern: bot.utterances.yes,
-                callback: function(response, convo) {
+                callback: function (response, convo) {
                     convo.say('Bye!');
                     convo.next();
-                    setTimeout(function() {
+                    setTimeout(function () {
                         process.exit();
                     }, 3000);
                 }
             },
-        {
-            pattern: bot.utterances.no,
-            default: true,
-            callback: function(response, convo) {
-                convo.say('*Phew!*');
-                convo.next();
+            {
+                pattern: bot.utterances.no,
+                default: true,
+                callback: function (response, convo) {
+                    convo.say('*Phew!*');
+                    convo.next();
+                }
             }
-        }
         ]);
     });
 });
 
 
 controller.hears(['uptime', 'identify yourself', 'who are you', 'what is your name'],
-    'direct_message,direct_mention,mention', function(bot, message) {
+    'direct_message,direct_mention,mention', function (bot, message) {
 
         var hostname = os.hostname();
         var uptime = formatUptime(process.uptime());
 
         bot.reply(message,
             ':robot_face: I am a bot named <@' + bot.identity.name +
-             '>. I have been running for ' + uptime + ' on ' + hostname);
+            '>. I have been running for ' + uptime + ' on ' + hostname);
 
     });
 
