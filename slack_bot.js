@@ -95,7 +95,7 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
         })
 });
 
-var j = schedule.scheduleJob('42 * * * *', function(){
+var j = schedule.scheduleJob('0 0 * * * *', function(){
     controller.storage.users.all(function (err, all_user_data) {
         for (var user_index in all_user_data) {
             all_user_data[user_index].desire = false;
