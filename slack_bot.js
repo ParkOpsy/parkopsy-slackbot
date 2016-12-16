@@ -7,7 +7,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: ''
+    token: 'xoxb-117648373715-FVI5Nmp3nhrcKEbUnQivgoGx'
 }).startRTM();
 
 
@@ -67,13 +67,12 @@ controller.hears(['wfh'], 'direct_message', function (bot, message) {
     });
 
 controller.hears(['park me'], 'direct_message', function (bot, message) {
-        controller.storage.users.all(function (result) {
-            for (var i in result) {
-                if (!i.status.isbusy) {
-                    i.status.isbusy = true;
-                    i.status.before = 'today';
-                    controller.storage.users.save(i, function (err, id) {
-
+        controller.storage.users.all(function (err, all_user_data) {
+            for (var i in all_user_data) {
+                if (all_user_data[i] && !all_user_data[i].status.isbusy) {
+                    all_user_data[i].status.isbusy = true;
+                    all_user_data[i].status.before = 'today';
+                    controller.storage.users.save(all_user_data[i], function (err, id) {
                     })
                 }
             }
