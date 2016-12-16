@@ -12,14 +12,23 @@ var bot = controller.spawn({
     token: ''
 }).startRTM();
 
+function createUser(id) {
+    return {
+        id: id,
+        parking_number: null,
+        status: {
+            isbusy: null,
+            free_dates: []
+        },
+        desire: null
+    }
+}
 
 controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', function(bot, message) {
     var parking = message.match[1];
     controller.storage.users.get(message.user, function(err, user) {
         if (!user) {
-            user = {
-                id: message.user
-            };
+            user = createUser(message.user);
         }
         user.parking_number = parking;
         user.status = {
@@ -32,39 +41,33 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
             ]
         };
         controller.storage.users.save(user, function(err, id) {
-            bot.reply(message, 'Thanks for ready to share your place!');
+            bot.reply(message, 'Thanks for ready to share your place number '+user.parking_number);
         });
     });
 });
 
 controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', function (bot, message) {
     var days = message.match[1];
-    console.log(days);
     controller.storage.users.get(message.user, function (err, user) {
-        var days = message.match[1];
         if (!user) {
-            user = {
-                id: message.user
-            };
+            user = createUser(message.user);
         }
-        if (typeof(user.parking_number) == 'undefined') {
+        if (user.parking_number == null) {
             bot.reply('Register park number. /n Type "ready YOUR-PARK-NUMBER"');
             return;
         }
 
-        var to;
-        if (!days){
-             to ="today";
-        }else{
-            to = "today"+days;
-        }
+        var to = "today"+days;
 
-        if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates')){
-            user.status.isbusy=true;
+        if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates'))
+        {
+            user.status.isbusy = false;
             user.status.free_dates.push(generateDate(days));
-        }else{
+        }
+        else
+        {
             user.status = {
-                isbusy: true,
+                isbusy: false,
                 free_dates: [
                     {
                         from: "today",
@@ -73,17 +76,13 @@ controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', 
                 ]
             };
         }
-
         controller.storage.users.save(user, function (err, id) {
-            bot.reply(message, 'Got it. Your parking place is free for today, ' + user.name);
+            bot.reply(message, 'Got it. Your parking place is free for today and '+days+' days.');
         })
     });
 });
 
 function generateDate(number) {
-    if (!number){
-        number=0;
-    }
     return {
         from: "today",
         to: "today + number"
@@ -93,7 +92,8 @@ function generateDate(number) {
 controller.hears(['park me'], 'direct_message', function (bot, message) {
     controller.storage.users.all(function (err, all_user_data) {
         for (var i in all_user_data) {
-            if (all_user_data[i] && all_user_data[i].hasOwnProperty('status') && !all_user_data[i].status.isbusy) {
+            if (all_user_data[i] && all_user_data[i].hasOwnProperty('status') && !all_user_data[i].status.isbusy)
+            {
                 all_user_data[i].status.isbusy = true;
                 all_user_data[i].status.before = 'today';
                 controller.storage.users.save(all_user_data[i], function (err, id) {
