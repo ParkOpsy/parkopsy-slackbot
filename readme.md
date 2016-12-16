@@ -26,20 +26,24 @@
 <h2>Commands</h2>
 
 <h3>Parking place owners</h3>
->> ready _parking number_
 
->> free
->> free _number of days_
+<b>ready _parking number_</b>
+if (user in users already)
+    then sent WTF
+
+<b>free</b>
+
+</b>free _number of days</b>
 if (queue not empty)
     then sent notifications to users in queue
 
->> vacations _date1_ _date2_
+<b>vacations _date1_ _date2_</b>
 
->> cancel
+<b>cancel</b>
 user.status.free_dates = undefined
 
 <h3>Parking place seekers</h3>
->> park me
+<b>park me
 
 if (no available places)
     then user.desire = true
