@@ -7,7 +7,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: 'xoxb-117648373715-FVI5Nmp3nhrcKEbUnQivgoGx'
+    token: ''
 }).startRTM();
 
 
@@ -38,12 +38,7 @@ controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_men
     controller.storage.users.get(message.user, function(err, user) {
         if (!user) {
             user = {
-                id: message.user,
-                parking_number: 10,
-                status: {
-                    isbusy: true,
-                    before: 'infinite'
-                }
+                id: message.user
             };
         }
         user.name = name;
@@ -53,14 +48,31 @@ controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_men
     });
 });
 
+controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', function(bot, message) {
+    var parking = message.match[1];
+    controller.storage.users.get(message.user, function(err, user) {
+        if (!user) {
+            user = {
+                id: message.user
+            };
+        }
+        user.parking_number = parking;
+        user.status = {
+            isbusy: true,
+            before: 'infinite'
+        };
+        controller.storage.users.save(user, function(err, id) {
+            bot.reply(message, 'Thanks for ready to share your place ' + user.name + '!');
+        });
+    });
+});
 
 
 controller.hears(['wfh'], 'direct_message', function (bot, message) {
-
         controller.storage.users.get(message.user, function (err, user) {
             user.status.isbusy = false;
             controller.storage.users.save(user, function(err, id) {
-
+                bot.reply(message, 'Got it. Your parking place is free for today, ' + user.name);
             })
         });
 
@@ -73,6 +85,8 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
                     all_user_data[i].status.isbusy = true;
                     all_user_data[i].status.before = 'today';
                     controller.storage.users.save(all_user_data[i], function (err, id) {
+                        bot.reply(message, 'You can park at ' + all_user_data[i].parking_number);
+                        break;
                     })
                 }
             }
