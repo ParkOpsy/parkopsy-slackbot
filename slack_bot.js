@@ -61,10 +61,15 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
         user.parking_number = parking;
         user.status = {
             isbusy: true,
-            before: 'infinite'
+            free_dates: [
+                {
+                    from: "today",
+                    to: "today"
+                }
+            ]
         };
         controller.storage.users.save(user, function(err, id) {
-            bot.reply(message, 'Thanks for ready to share your place ' + user.name + '!');
+            bot.reply(message, 'Thanks for ready to share your place!');
         });
     });
 });
@@ -73,9 +78,6 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
 controller.hears(['free (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
 
     controller.storage.users.get(message.user, function (err, user) {
-        console.log('first');
-        console.log(user.name);
-        console.log(user.parking_number);
         if (!user) {
             user = {
                 id: message.user
