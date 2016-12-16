@@ -48,12 +48,10 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
 
 controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', function (bot, message) {
     var days = message.match[1];
+    console.log(typeof (days));
     controller.storage.users.get(message.user, function (err, user) {
         if (!user) {
-            user = createUser(message.user);
-        }
-        if (user.parking_number == null) {
-            bot.reply('Register park number. /n Type "ready YOUR-PARK-NUMBER"');
+            bot.reply(message, 'Please, use ready command first.');
             return;
         }
 
@@ -77,7 +75,14 @@ controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', 
             };
         }
         controller.storage.users.save(user, function (err, id) {
-            bot.reply(message, 'Got it. Your parking place is free for today and '+days+' days.');
+            if (typeof (days) == 'undefined'){
+                bot.reply(message, 'Got it. Your parking place is free for today.');
+            }
+            else
+            {
+                bot.reply(message, 'Got it. Your parking place is free for today and '+days+' days.');
+            }
+
         })
     });
 });
