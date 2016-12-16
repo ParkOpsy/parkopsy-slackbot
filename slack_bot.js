@@ -9,7 +9,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: ''
+    token: 'xoxb-117648373715-7Ok6403f1wqhAgP6RAjrvSit'
 }).startRTM();
 
 
@@ -88,7 +88,6 @@ controller.hears(['free (.*)'], 'direct_message,direct_mention,mention', functio
             bot.reply('Register park number. /n Type "ready YOUR-PARK-NUMBER"');
             return;
         }
-        var days = message.match[1];
 
         var to;
         if (!days){
