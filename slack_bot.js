@@ -9,7 +9,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: 'xoxb-117648373715-7Ok6403f1wqhAgP6RAjrvSit'
+    token: ''
 }).startRTM();
 
 
@@ -74,11 +74,11 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
     });
 });
 
-// controller.hears(['free'], 'direct_message,direct_mention,mention', function (bot, message) {
-controller.hears(['free (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
+controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', function (bot, message) {
     var days = message.match[1];
     console.log(days);
     controller.storage.users.get(message.user, function (err, user) {
+        var days = message.match[1];
         if (!user) {
             user = {
                 id: message.user
@@ -100,9 +100,7 @@ controller.hears(['free (.*)'], 'direct_message,direct_mention,mention', functio
             user.status.isbusy=true;
             user.status.free_dates.push(generateDate(days));
         }else{
-//move from bottom
-        }
-        user.status = {
+            user.status = {
                 isbusy: true,
                 free_dates: [
                     {
@@ -111,6 +109,7 @@ controller.hears(['free (.*)'], 'direct_message,direct_mention,mention', functio
                     }
                 ]
             };
+        }
 
         controller.storage.users.save(user, function (err, id) {
             bot.reply(message, 'Got it. Your parking place is free for today, ' + user.name);
