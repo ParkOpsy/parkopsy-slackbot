@@ -93,9 +93,9 @@ controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', 
                 {
                     if (team.hasOwnProperty('userQueue') && team.userQueue.length != 0) {
                         for (var user_id in team.userQueue) {
-                            bot.startPrivateConversation({user: user_id}, function (err, conversation) {
-                                bot.say('Parking place is available!');
-                            });
+                            //bot.startPrivateConversation({user: team.userQueue[user_id].user}, function (err, conversation) {
+                                bot.reply(team.userQueue[user_id], 'Parking place is available!');
+                            //});
                         }
                         team.userQueue = [];
                         controller.storage.teams.save(team, function (err, id) {
@@ -134,7 +134,7 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
             if (!team) {
                 team = {
                     id: message.team,
-                    userQueue: [message.user]
+                    userQueue: [message]
                 };
                 controller.storage.teams.save(team, function (err, id) {
                     bot.reply(message, 'You was added to queue and be notificate if there will be free parkings.');
@@ -142,7 +142,7 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
             }
             else
             {
-                team.userQueue.push(message.user);
+                team.userQueue.push(message);
                 controller.storage.teams.save(team, function (err, id) {
                     bot.reply(message, 'You was added to queue and be notificate if there will be free parkings.');
                 })
