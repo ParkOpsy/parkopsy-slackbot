@@ -87,6 +87,31 @@ controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', 
             {
                 bot.reply(message, 'Got it. Your parking place is free for today and '+(days-1)+' next days.');
             }
+
+            controller.storage.teams.get(message.team, function (err, team) {
+                if (team)
+                {
+                    if (team.hasOwnProperty('userQueue') && team.userQueue.length != 0) {
+                        for (var user_id in team.userQueue) {
+                            bot.startPrivateConversation({user: user_id}, function (err, conversation) {
+                                bot.say('Parking place is available!');
+                            });
+                        }
+                        team.userQueue = [];
+                        controller.storage.teams.save(team, function (err, id) {
+                            console.log('Queue was updated');
+                        });
+                    }
+                    else
+                    {
+                        console.log('Queue is empty at the moment');
+                    }
+                }
+                else
+                {
+                    console.log('No queue was created even once');
+                }
+            })
         })
     });
 });
