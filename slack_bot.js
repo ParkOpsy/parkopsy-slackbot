@@ -125,6 +125,35 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
     });
 });
 
+controller.hears(['cancel'],'direct_message', function (bot, message) {
+    controller.storage.users.get(message.user, function (err, user) {
+        if (!user) {
+            bot.replay(message, 'User is not registered.');
+            return;
+        }
+        else
+        {
+            user.status.free_dates = [];
+            controller.storage.users.save(user, function (err, id) {
+                bot.reply(message, 'All free dates were canceled.')
+            })
+        }
+    })
+});
+
+controller.hears(['status'], 'direct_message', function (bot, message) {
+    controller.storage.users.all(function (err, all_user_data) {
+        var number_of_free_parkings = 0;
+        for (var user_index in all_user_data) {
+            if (!all_user_data[user_index].status.isbusy)
+            {
+                number_of_free_parkings = number_of_free_parkings + 1;
+            }
+        }
+        bot.reply(message, 'Current number of free parking places is ' + number_of_free_parkings);
+    })
+})
+
 var j = schedule.scheduleJob('0 0 * * * *', function(){
     controller.storage.users.all(function (err, all_user_data) {
         if (all_user_data) {
