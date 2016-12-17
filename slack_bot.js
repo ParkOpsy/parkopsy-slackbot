@@ -33,12 +33,7 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
         user.parking_number = parking;
         user.status = {
             isbusy: true,
-            free_dates: [
-                {
-                    from: "today",
-                    to: "today"
-                }
-            ]
+            free_dates: []
         };
         controller.storage.users.save(user, function(err, id) {
             bot.reply(message, 'Thanks for ready to share your place number '+user.parking_number);
@@ -48,19 +43,29 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
 
 controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', function (bot, message) {
     var days = message.match[1];
-    console.log(typeof (days));
     controller.storage.users.get(message.user, function (err, user) {
         if (!user) {
             bot.reply(message, 'Please, use ready command first.');
             return;
         }
 
-        var to = "today"+days;
+        // Approach to get current date
+        var to = new Date();
+        if (typeof(days) != 'undefined')
+        {
+            // Approach to add N days to current date
+            to.setDate(to.getDate() + days);
+        }
 
         if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates'))
         {
             user.status.isbusy = false;
-            user.status.free_dates.push(generateDate(days));
+            user.status.free_dates.push(
+                {
+                    from: new Date(),
+                    to: to
+                }
+            );
         }
         else
         {
@@ -68,7 +73,7 @@ controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', 
                 isbusy: false,
                 free_dates: [
                     {
-                        from: "today",
+                        from: new Date(),
                         to: to
                     }
                 ]
@@ -80,19 +85,11 @@ controller.hears(['free (.*)','free'], 'direct_message,direct_mention,mention', 
             }
             else
             {
-                bot.reply(message, 'Got it. Your parking place is free for today and '+days+' days.');
+                bot.reply(message, 'Got it. Your parking place is free for today and '+(days-1)+' next days.');
             }
-
         })
     });
 });
-
-function generateDate(number) {
-    return {
-        from: "today",
-        to: "today + number"
-    }
-}
 
 controller.hears(['park me'], 'direct_message', function (bot, message) {
     controller.storage.users.all(function (err, all_user_data) {
@@ -100,7 +97,6 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
             if (all_user_data[i] && all_user_data[i].hasOwnProperty('status') && !all_user_data[i].status.isbusy)
             {
                 all_user_data[i].status.isbusy = true;
-                all_user_data[i].status.before = 'today';
                 controller.storage.users.save(all_user_data[i], function (err, id) {
                     bot.reply(message, 'You can park at ' + all_user_data[i].parking_number);
                 });
@@ -133,7 +129,10 @@ controller.hears(['cancel'],'direct_message', function (bot, message) {
         }
         else
         {
-            user.status.free_dates = [];
+            user.status = {
+                isbusy: true,
+                free_dates: []
+            }
             controller.storage.users.save(user, function (err, id) {
                 bot.reply(message, 'All free dates were canceled.')
             })
