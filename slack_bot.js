@@ -188,7 +188,7 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
 controller.hears(['cancel'], 'direct_message', function (bot, message) {
     controller.storage.users.get(message.user, function (err, user) {
         if (!user) {
-            bot.replay(message, 'User is not registered.');
+            bot.reply(message, 'User is not registered.');
             return;
         }
         else {
@@ -277,7 +277,8 @@ controller.hears(['help'],
     'direct_message,direct_mention,mention', function (bot, message) {
 
         bot.reply(message,
-            'if you are a parking place owner: \n ready [parking number] \n free [number of days?] \n cancel \n \n' +
+            'if you are a parking place owner: \n ready [parking number] \n free [number of days?] \n cancel \n' +
+            ' vacations [yyyy-mm-dd] [yyyy-mm-dd]\n' +
             'if you are a parking place seeker: \n park me \n status');
 
     });
@@ -287,16 +288,16 @@ controller.hears(['admin'],
 
         bot.reply(message,
             (function () {
-                var number_of_users;
-                var number_of_parkings;
-                var queue_length;
+                var number_of_users = 0;
+                var number_of_parkings = 0;
+                var queue_length = 0;
 
                 controller.storage.teams.all(function (err, all_team_data) {
                     if (all_team_data && all_team_data.hasOwnProperty('userQueue')) {
                         queue_length = all_team_data.userQueue.length;
                     }
                     else {
-                        queue_length
+                        queue_length = 0;
                     }
                 });
 
