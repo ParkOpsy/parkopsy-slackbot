@@ -40,6 +40,47 @@ controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', functi
     });
 });
 
+controller.hears(['vacations (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
+    var dates = message.match[1];
+
+    controller.storage.users.get(message.user, function (err, user) {
+        if (!user) {
+            bot.reply(message, 'Please, use ready command first.');
+            return;
+        }
+
+        var vacations_from = dates.match(/\d{4}-\d{2}-\d{2}/);
+        var vacations_to = dates.match(/ \d{4}-\d{2}-\d{2}/);
+
+        if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates')) {
+            user.status.free_dates.push(
+                {
+                    from: vacations_from,
+                    to: vacations_to
+                }
+            );
+        }
+        else {
+            user.status =
+                {
+                    isbusy: true,
+                    free_dates: [
+                        {
+                            from: vacations_from,
+                            to: vacations_to
+                        }
+                    ]
+                };
+        }
+
+        controller.storage.users.save(user, function (err, id) {
+
+            bot.reply(message, 'Got it. I will remember you vacations dates');
+
+        })
+    });
+});
+
 controller.hears(['free (.*)', 'free'], 'direct_message,direct_mention,mention', function (bot, message) {
     var days = message.match[1];
     controller.storage.users.get(message.user, function (err, user) {
@@ -176,10 +217,8 @@ controller.hears(['status'], 'direct_message', function (bot, message) {
 
 var j = schedule.scheduleJob('0 0 * * * *', function () {
     controller.storage.users.all(function (err, all_user_data) {
-        if (all_user_data)
-        {
-            for (var user_index in all_user_data)
-            {
+        if (all_user_data) {
+            for (var user_index in all_user_data) {
                 if (all_user_data[user_index].parking_number != 'no parking number') {
                     all_user_data[user_index].status.isbusy = true;
                     for (var date_index in all_user_data[user_index].status.free_dates) {
@@ -256,16 +295,14 @@ controller.hears(['admin'],
                     if (all_team_data && all_team_data.hasOwnProperty('userQueue')) {
                         queue_length = all_team_data.userQueue.length;
                     }
-                    else
-                    {
+                    else {
                         queue_length
                     }
                 });
 
                 controller.storage.users.all(function (err, all_user_data) {
                     number_of_users = all_user_data.length;
-                    for (var i in all_user_data)
-                    {
+                    for (var i in all_user_data) {
                         if (all_user_data[i].parking_number != 'no parking number') {
                             number_of_parkings = number_of_parkings + 1;
                         }
@@ -273,8 +310,8 @@ controller.hears(['admin'],
                 });
 
                 return 'Number of users is ' + number_of_users + '\n' +
-                        'Number of parkings is ' + number_of_parkings + '\n' +
-                        'Length of queue is ' + queue_length;
+                    'Number of parkings is ' + number_of_parkings + '\n' +
+                    'Length of queue is ' + queue_length;
             })()
         );
 
