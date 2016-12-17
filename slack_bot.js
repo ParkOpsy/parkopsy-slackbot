@@ -96,6 +96,7 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
         for (var i in all_user_data) {
             if (all_user_data[i] && all_user_data[i].hasOwnProperty('status') && !all_user_data[i].status.isbusy)
             {
+                // We should only change status of the parking place to busy status.
                 all_user_data[i].status.isbusy = true;
                 controller.storage.users.save(all_user_data[i], function (err, id) {
                     bot.reply(message, 'You can park at ' + all_user_data[i].parking_number);
@@ -103,20 +104,24 @@ controller.hears(['park me'], 'direct_message', function (bot, message) {
                 return;
             }
         }
-
-        // couldn't find anything, adding to queue
-        if (!controller.storage.teams.get(message.team_id)) {
-            team = {
-                id: message.team_id,
-                userQueue: [message.user]
-            };
-        } else {
-            team = controller.storage.teams.get(message.team_id);
-            team.userQueue.push(message.user);
-            // console.log('Added user to queue : ' + team);
-        }
-        controller.storage.teams.save(team, function (err, id) {
-            bot.reply(message, 'Sry no free spaces but u re in a queue now my dude : ' + team.userQueue);
+        
+        controller.storage.teams.get(message.team, function (err, team) {
+            if (!team) {
+                team = {
+                    id: message.team,
+                    userQueue: [message.user]
+                };
+                controller.storage.teams.save(team, function (err, id) {
+                    bot.reply(message, 'You was added to queue and be notificate if there will be free parkings.');
+                })
+            }
+            else
+            {
+                team.userQueue.push(message.user);
+                controller.storage.teams.save(team, function (err, id) {
+                    bot.reply(message, 'You was added to queue and be notificate if there will be free parkings.');
+                })
+            }
         });
     });
 });
