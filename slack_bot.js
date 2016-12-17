@@ -247,15 +247,12 @@ controller.hears(['shutdown'], 'direct_message,direct_mention,mention', function
 });
 
 
-controller.hears(['uptime', 'identify yourself', 'who are you', 'what is your name'],
+controller.hears(['help'],
     'direct_message,direct_mention,mention', function (bot, message) {
 
-        var hostname = os.hostname();
-        var uptime = formatUptime(process.uptime());
-
         bot.reply(message,
-            ':robot_face: I am a bot named <@' + bot.identity.name +
-            '>. I have been running for ' + uptime + ' on ' + hostname);
+            'if you are a parking place owner: \n ready [parking number] \n free [number of days?] \n cancel \n \n'+
+            'if you are a parking place seeker: \n park me \n status');
 
     });
 
