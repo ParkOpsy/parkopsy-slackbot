@@ -288,7 +288,7 @@ controller.hears(['status'], 'direct_message', function (bot, message) {
     })
 })
 
-var j = schedule.scheduleJob('0 0 * * * *', function () {
+var j = schedule.scheduleJob('59 23 * * *', function () {
     controller.storage.users.all(function (err, all_user_data) {
         if (all_user_data) {
             for (var user_index in all_user_data) {
