@@ -292,27 +292,53 @@ var j = schedule.scheduleJob('0 0 * * * *', function () {
     controller.storage.users.all(function (err, all_user_data) {
         if (all_user_data) {
             for (var user_index in all_user_data) {
-                if (all_user_data[user_index].parking_number != 'no parking number') {
-                    all_user_data[user_index].status.isbusy = true;
-                    for (var date_index in all_user_data[user_index].status.free_dates) {
-                        if (all_user_data[user_index].status.free_dates[date_index].from <= new Date() &&
-                            new Date() <= all_user_data[user_index].status.free_dates[date_index].to) {
-                            all_user_data[user_index].status.isbusy = false;
+                if (all_user_data[user_index].hasOwnProperty('parking_number') && all_user_data[user_index].parking_number != 'no parking number') {
+                    if (all_user_data[user_index].hasOwnProperty('status')) {
+                        all_user_data[user_index].status.isbusy = true;
+                        for (var date_index in all_user_data[user_index].status.free_dates) {
+                            if (all_user_data[user_index].status.free_dates[date_index].from <= new Date() &&
+                                new Date() <= all_user_data[user_index].status.free_dates[date_index].to) {
+                                all_user_data[user_index].status.isbusy = false;
+                            }
                         }
                     }
+                    else
+                    {
+                        all_user_data[user_index].status = {
+                            isbusy: true,
+                            free_dates: []
+                        }
+
+                    }
+                    controller.storage.users.save(all_user_data[user_index], function (err, id) {
+                        console.log('User was updated at ' + new Date());
+                    })
                 }
             }
-            controller.storage.users.save(all_user_data, function (err, id) {
-                console.log('Users were updated');
-            });
         }
     });
 
     controller.storage.teams.all(function (err, all_team_data) {
-        all_team_data = {};
-        controller.storage.teams.save(all_team_data, function (err, id) {
-            console.log('Queue was cleared');
-        })
+        if (all_team_data && all_team_data.hasOwnProperty('userQueue'))
+        {
+            all_team_data.userQueue = [];
+            controller.storage.teams.save(all_team_data, function (err, id) {
+                console.log('Queue was cleared (old approach) at ' + new Date());
+            });
+        }
+        else
+        {
+            if (all_team_data && all_team_data[0].hasOwnProperty('userQueue')) {
+                all_team_data[0].userQueue = [];
+                controller.storage.teams.save(all_team_data[0], function (err, id) {
+                    console.log('Queue was cleared (new approach) at ' + new Date());
+                });
+            }
+            else
+            {
+                console.log('Queue was not updated at ' + new Date());
+            }
+        }
     });
 
 });
