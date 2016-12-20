@@ -5,7 +5,9 @@ Then if you decide to WFH send <b>free</b> command.
 
 ### If you are a parking place seeker
 Just send <b>park me</b> command to bot. 
-If there is no parking places are available you will recieve a notification as soon as any will be.
+If there is no parking places are available you will be added to user queue and receive a notification as soon as any will be.
+
+```The user queue is cleaned up and every free place status is set to busy (if current date is not in free_dates[]) at 23:59.```
 
 ## User structure
 ```javascript
