@@ -1,4 +1,13 @@
-### User structure
+## Workflow
+### If you are a parking place peer
+Firstly register your parking place with <b>ready [your parking place number]</b> command.
+Then if you decide to WFH send <b>free</b> command.
+
+### If you are a parking place seeker
+Just send <b>park me</b> command to bot. 
+If there is no parking places are available you will recieve a notification as soon as any will be.
+
+## User structure
 ```javascript
 {
 	"id": string,
@@ -13,14 +22,14 @@
 	},
 }
 ```
-### Queue structure
+## Queue structure
 ```javascript
 {
     "users":
         slackMessage[]
 }
 ```
-### Commands
+## Full list of commands
 
 <h3>Parking place owners</h3>
 
@@ -40,7 +49,7 @@
 <h3>Parking place seekers</h3>
 
 * <b>park me</b>
-	to recieve a parking place
+	to receive a parking place
 
 <h3>Common commands</h3>
 
