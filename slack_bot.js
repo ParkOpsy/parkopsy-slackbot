@@ -319,26 +319,18 @@ var j = schedule.scheduleJob('59 23 * * *', function () {
     });
 
     controller.storage.teams.all(function (err, all_team_data) {
-        if (all_team_data && all_team_data.hasOwnProperty('userQueue'))
-        {
-            all_team_data.userQueue = [];
-            controller.storage.teams.save(all_team_data, function (err, id) {
-                console.log('Queue was cleared (old approach) at ' + new Date());
+                
+        if (all_team_data && all_team_data[0].hasOwnProperty('userQueue')) {
+            all_team_data[0].userQueue = [];
+            controller.storage.teams.save(all_team_data[0], function (err, id) {
+                console.log('Queue was cleared at ' + new Date());
             });
         }
         else
         {
-            if (all_team_data && all_team_data[0].hasOwnProperty('userQueue')) {
-                all_team_data[0].userQueue = [];
-                controller.storage.teams.save(all_team_data[0], function (err, id) {
-                    console.log('Queue was cleared (new approach) at ' + new Date());
-                });
-            }
-            else
-            {
-                console.log('Queue was not updated at ' + new Date());
-            }
+            console.log('Queue was not updated at ' + new Date());
         }
+        
     });
 
 });
