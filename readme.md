@@ -2,6 +2,8 @@
 ```bash
 npm install
 
+set TOKEN=<your bot token>
+
 node slack_bot.js
 ```
 
