@@ -1,4 +1,5 @@
 var schedule = require("node-schedule");
+var moment = require('moment');
 
 var Botkit = require('./lib/Botkit.js');
 var os = require('os');
@@ -12,327 +13,398 @@ var bot = controller.spawn({
     token: ''
 }).startRTM();
 
-function createUser(id) {
+function createUser(userID, parkingNumber) {
     return {
-        id: id,
-        parking_number: 'no parking number',
-        status: {
-            isbusy: 'no parking number',
-            free_dates: []
-        }
+        id: userID,
+        parkingPlace: createParkingPlace(parkingNumber)
     }
 }
 
-controller.hears(['not ready'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-    controller.storage.users.get(message.user, function (err, user) {
-        if(!user) {
-            user = createUser(message.user);
-            controller.storage.users.save(user, function (err, id) {
-                bot.reply(message, 'You was not registered yet.');
-            });
-        }
-        else
-        {
-            user = createUser(message.user);
-            controller.storage.users.save(user, function (err, id) {
-                bot.reply(message, 'All your user information was deleted.');
-            });
-        }
-    });
-});
+function createParkingPlace(parkingNumber) {
+    return {
+        number: parkingNumber,
+        status: 'busy',
+        freeDates: [],
+        tenant: ''
+    }
+}
 
-controller.hears(['my info'], 'direct_message,direct_mention,mention', function (bot, message) {
-    controller.storage.users.get(message.user, function (err, user) {
-        if (!user) {
-            user = createUser(message.user);
-            controller.storage.users.save(user, function (err, id) {
-                bot.reply(message, 'You do not register a parking place. Use ready [parking number] command.\n' +
-                    'If you want to park then you do not have user info and just use park me command.');
-            });
-        }
-        else {
-            if (user.hasOwnProperty('parking_number') && user.parking_number == 'no parking number') {
-                bot.reply(message, 'You do not register a parking place. Use ready [parking number] command.\n' +
-                    'If you want to park then you do not have user info and just use park me command.');
-            }
-            else {
-                bot.reply(message, 'Your parking number is ' + user.parking_number + '.\n' +
-                'Its current status is ' + (user.status.isbusy ? 'busy' : 'free') + '.')
-            }
-        }
-    })
-});
+function printDates(dates) {
+    dates = optimizeDates(dates);
+    var result = '';
+    for (var i in dates) {
+        result = result +
+            (dates.length == 1 ? '' : i + '. ') +
+            'from ' +
+            moment(dates[i].from).format('YYYY MMMM D') +
+            ' to ' +
+            moment(dates[i].to).format('YYYY MMMM D') +
+            (i == dates.length - 1 ? '' : '\n');
+    }
+    return result;
+}
 
-controller.hears(['ready (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
-    var parking = message.match[1];
-
-    controller.storage.users.get(message.user, function (err, user) {
-
-        if (user) {
-            user.parking_number = parking;
-            if (user.hasOwnProperty('status') && user.status.isbusy == 'no parking number') {
-                user.status = {
-                    isbusy: true,
-                    froo_dates: []
+function optimizeDates(dates) {
+    for (var i = 0; i < dates.length; i++) {
+        for (var j = 0; j < dates.length; j++) {
+            if (j != i) {
+                // [from j   <from i     >to i     ]to j
+                if (moment(dates[i].from).diff(moment(dates[j].from), 'days') >= 0 &&
+                    moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
+                    moment(dates[i].to).diff(moment(dates[j].to), 'days') <= 0 &&
+                    moment(dates[i].to).diff(moment(dates[j].from), 'days') >= 0) {
+                    console.log('[  <  >  ]');
+                    dates.splice(i, 1);
+                    i = 0;
+                    continue;
+                }
+                // [from j   <from i     ]to j      >to i
+                if (moment(dates[i].from).diff(moment(dates[j].from), 'days') >= 0 &&
+                    moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
+                    moment(dates[i].to).diff(moment(dates[j].to), 'days') >= 0 &&
+                    moment(dates[i].to).diff(moment(dates[j].from), 'days') >= 0) {
+                    console.log('[  <  ]  >');
+                    dates[i].from = dates[j].from;
+                    dates.splice(j, 1);
+                    i = 0;
+                    continue;
+                }
+                // <from i   [from j      >to i     ]to j
+                if (moment(dates[i].from).diff(moment(dates[j].from), 'days') <= 0 &&
+                    moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
+                    moment(dates[i].to).diff(moment(dates[j].to), 'days') <= 0 &&
+                    moment(dates[i].to).diff(moment(dates[j].from), 'days') >= 0) {
+                    console.log('<  [  >  ]');
+                    dates[i].to = dates[j].to;
+                    dates.splice(j, 1);
+                    i = 0;
                 }
             }
-            controller.storage.users.save(user, function (err, id) {
-                bot.reply(message, 'Your parking number was updated.');
-            });
-            return;
         }
+    }
+    return dates;
+}
 
-        if (!user) {
-            user = createUser(message.user);
-        }
-        user.parking_number = parking;
-        user.status = {
-            isbusy: true,
-            free_dates: []
-        };
+controller.hears(['ready to share (.*)'],
+    'direct_message,direct_mention,mention', function (bot, message) {
 
-        controller.storage.users.save(user, function (err, id) {
-            bot.reply(message, 'You was registered.\nThanks for be ready to share your place number ' + user.parking_number);
+        var parkingNumber = message.match[1];
+
+        controller.storage.users.get(message.user, function (err, user) {
+            if (user) {
+                user.parkingPlace = createParkingPlace(parkingNumber);
+                controller.storage.users.save(user, function (err, id) {
+                    bot.reply(message,
+                        'Your parking place number was updated.\n' +
+                        'Status is set to busy and free dates are clean up.');
+                });
+            }
+            else {
+                user = createUser(message.user, parkingNumber);
+                controller.storage.users.save(user, function (err, id) {
+                    bot.reply(message,
+                        'You was registered.\n' +
+                        'Thanks for be ready to share your parking place number ' + user.parkingPlace.number + '.');
+                });
+            }
         });
     });
-});
 
-controller.hears(['vacations (.*)'], 'direct_message,direct_mention,mention', function (bot, message) {
-    var dates = message.match[1];
-
-    controller.storage.users.get(message.user, function (err, user) {
-        if (!user) {
-            bot.reply(message, 'Please, use ready command first.');
-            return;
-        }
-
-        var vacations_from = dates.match(/\d{4}-\d{2}-\d{2}/);
-        var vacations_to = dates.match(/ \d{4}-\d{2}-\d{2}/);
-
-        if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates')) {
-            user.status.free_dates.push(
-                {
-                    from: vacations_from,
-                    to: vacations_to
-                }
-            );
-        }
-        else {
-            user.status =
-                {
-                    isbusy: true,
-                    free_dates: [
-                        {
-                            from: vacations_from,
-                            to: vacations_to
-                        }
-                    ]
-                };
-        }
-
-        controller.storage.users.save(user, function (err, id) {
-
-            bot.reply(message, 'Got it. I will remember you vacations dates');
-
-        })
-    });
-});
-
-controller.hears(['free (.*)', 'free'], 'direct_message,direct_mention,mention', function (bot, message) {
-    var days = message.match[1];
-
-    controller.storage.users.get(message.user, function (err, user) {
-
-        if (!user) {
-            bot.reply(message, 'You do not register a parking place. Use ready [parking number] command.');
-            return;
-        }
-
-        if (user.hasOwnProperty('parking_number') && user.parking_number == 'no parking number') {
-            bot.reply(message, 'You do not register a parking place. Use ready [parking number] command.');
-            return;
-        }
-
-        if (typeof (days) == 'undefined' && user.hasOwnProperty('status') && !user.status.isbusy) {
-            bot.reply(message, 'You parking place is already free for today.');
-            return;
-        }
-        // Approach to get current date
-        var to = new Date();
-        if (typeof(days) != 'undefined') {
-            // Approach to add N days to current date
-            to.setDate(to.getDate() + days);
-        }
-
-        if (user.hasOwnProperty('status') && user.status.hasOwnProperty('free_dates')) {
-            user.status.isbusy = false;
-            user.status.free_dates.push(
-                {
-                    from: new Date(),
-                    to: to
-                }
-            );
-        }
-        else {
-            user.status = {
-                isbusy: false,
-                free_dates: [
-                    {
-                        from: new Date(),
-                        to: to
-                    }
-                ]
-            };
-        }
-
-        controller.storage.users.save(user, function (err, id) {
-            if (typeof (days) == 'undefined') {
-                bot.reply(message, 'Got it. Your parking place is free for today.');
+controller.hears(['stop sharing'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+        controller.storage.users.get(message.user, function (err, user) {
+            if (!user) {
+                bot.reply(message,
+                    'You have not registered yet.' +
+                    'Use ready to share [parking number] command.\n');
             }
             else {
-                bot.reply(message, 'Got it. Your parking place is free for today and ' + (days - 1) + ' next days.');
+                controller.storage.users.delete(message.user, function (err) {
+                    bot.reply(message, 'All your user information was removed.');
+                });
             }
+        });
+    });
 
-            controller.storage.teams.get(message.team, function (err, team) {
-                if (team) {
-                    if (team.hasOwnProperty('userQueue') && team.userQueue.length != 0) {
-                        for (var user_id in team.userQueue) {
-                            bot.reply(team.userQueue[user_id], 'Parking place is available! Use park me command to book it for today');
+controller.hears(['my info'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+        controller.storage.users.get(message.user, function (err, user) {
+            if (!user) {
+                bot.reply(message,
+                    'You have not registered yet.\n' +
+                    'Use ready to share [parking number] command.\n' +
+                    'If you want to park then you do not have user info. Just use park me command.');
+            }
+            else {
+                bot.reply(message,
+                    'Your parking number is ' + user.parkingPlace.number + '.\n' +
+                    'Its current status is ' + user.parkingPlace.status + '.' +
+                    (user.parkingPlace.tenant != '' ?
+                    '\nYour tenant for today is ' + user.parkingPlace.tenant + '.' :
+                        '') +
+                    (user.parkingPlace.freeDates.length > 0 ?
+                    '\nYour days off are\n' + printDates(user.parkingPlace.freeDates) + '.' :
+                        '\nYou do not have days off.'));
+            }
+        })
+    });
+
+
+controller.hears(['vacations (.*)'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+        var dates = message.match[1];
+        var pattern = /(\d{4}-\d{2}-\d{2}) (\d{4}-\d{2}-\d{2})/;
+        if (pattern.test(dates)) {
+            var vacations_from = moment(pattern.exec(dates)[1]);
+            var vacations_to = moment(pattern.exec(dates)[2]);
+            if (vacations_from.isValid() && vacations_to.isValid()) {
+                if (vacations_to.diff(vacations_from, 'days') > 0) {
+                    controller.storage.users.get(message.user, function (err, user) {
+                        if (!user) {
+                            bot.reply(message,
+                                'You have not registered yet.' +
+                                'Use ready to share [parking number] command.\n');
                         }
-                        team.userQueue = [];
-                        controller.storage.teams.save(team, function (err, id) {
-                            console.log('Queue was updated');
-                        });
-                    }
-                    else {
-                        console.log('Queue is empty at the moment');
-                    }
+                        else {
+
+                            user.parkingPlace.freeDates.push(
+                                {
+                                    from: vacations_from,
+                                    to: vacations_to
+                                }
+                            );
+
+                            user.parkingPlace.freeDates = optimizeDates(user.parkingPlace.freeDates);
+
+                            controller.storage.users.save(user, function (err, id) {
+                                bot.reply(message, 'Got it. I will remember your days off.');
+                            })
+                        }
+                    });
                 }
                 else {
-                    console.log('No queue was created even once');
+                    bot.reply(message, 'Dates format is incorrect.\n' +
+                        'Vacations start ' + vacations_from.format('MMMM Do YYYY') +
+                        ' must be earlier than end ' + vacations_to.format('MMMM Do YYYY') + '.');
                 }
-            })
-        })
-    });
-});
-
-controller.hears(['park me'], 'direct_message', function (bot, message) {
-    controller.storage.users.all(function (err, all_user_data) {
-        for (var i in all_user_data) {
-            if (all_user_data[i] && all_user_data[i].hasOwnProperty('status') && !all_user_data[i].status.isbusy) {
-
-                // We should only change status of the parking place to busy status.
-                all_user_data[i].status.isbusy = true;
-
-                controller.storage.users.save(all_user_data[i], function (err, id) {
-                    bot.reply(message, 'Hey, lucky, you can park at ' + all_user_data[i].parking_number + '!');
-                });
-                return;
-            }
-        }
-
-        controller.storage.teams.get(message.team, function (err, team) {
-            if (!team) {
-                team = {
-                    id: message.team,
-                    userQueue: [message]
-                };
-                controller.storage.teams.save(team, function (err, id) {
-                    bot.reply(message, 'You was added to queue and be notificate if there will be free parking places.');
-                })
             }
             else {
-                team.userQueue.push(message);
-                controller.storage.teams.save(team, function (err, id) {
-                    bot.reply(message, 'You was added to queue and will be notificated if there will be free parking places.');
-                })
+                bot.reply(message, 'Dates format is incorrect.\n' +
+                    'Use vacations YYYY-MM-DD YYYY-MM-DD.');
             }
-        });
-    });
-});
-
-controller.hears(['cancel'], 'direct_message', function (bot, message) {
-    controller.storage.users.get(message.user, function (err, user) {
-        if (!user) {
-            bot.reply(message, 'You are not a registered user. Use ready [parking number] to create free date reservations.');
-
         }
         else {
-            if (user.hasOwnProperty('parking_number') && user.parking_number == 'no parking number') {
-                bot.reply(message, 'You have no registered parking places. Use ready [parking number] to create free date reservations.');
+            bot.reply(message, 'Dates format is incorrect.\n' +
+                'Use vacations YYYY-MM-DD YYYY-MM-DD.');
+        }
+    });
 
+controller.hears(['cancel vacations'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+        controller.storage.users.get(message.user, function (err, user) {
+            if (!user) {
+                bot.reply(message,
+                    'You have not registered yet.' +
+                    'Use ready to share [parking number] command.\n');
             }
             else {
-                user.status = {
-                    isbusy: true,
-                    free_dates: []
+                if (user.parkingPlace.freeDates.length == 0) {
+                    bot.reply(message,
+                        'You do not have days off.\n' +
+                        'Use vacations YYYY-MM-DD YYYY-MM-DD command to add one.')
                 }
-                controller.storage.users.save(user, function (err, id) {
-                    bot.reply(message, 'All free dates were canceled.')
-                })
-            }
-        }
-    })
-});
-
-controller.hears(['status'], 'direct_message', function (bot, message) {
-    controller.storage.users.all(function (err, all_user_data) {
-        var number_of_free_parkings = 0;
-        for (var user_index in all_user_data) {
-            if (all_user_data[user_index].hasOwnProperty('status') && !all_user_data[user_index].status.isbusy) {
-                number_of_free_parkings = number_of_free_parkings + 1;
-            }
-        }
-        bot.reply(message, 'Current number of free parking places is ' + number_of_free_parkings + '.');
-    })
-})
-
-var j = schedule.scheduleJob('59 23 * * *', function () {
-    controller.storage.users.all(function (err, all_user_data) {
-        if (all_user_data) {
-            for (var user_index in all_user_data) {
-                if (all_user_data[user_index].hasOwnProperty('parking_number') && all_user_data[user_index].parking_number != 'no parking number') {
-                    if (all_user_data[user_index].hasOwnProperty('status')) {
-                        all_user_data[user_index].status.isbusy = true;
-                        for (var date_index in all_user_data[user_index].status.free_dates) {
-                            if (all_user_data[user_index].status.free_dates[date_index].from <= new Date() &&
-                                new Date() <= all_user_data[user_index].status.free_dates[date_index].to) {
-                                all_user_data[user_index].status.isbusy = false;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        all_user_data[user_index].status = {
-                            isbusy: true,
-                            free_dates: []
-                        }
-
-                    }
-                    controller.storage.users.save(all_user_data[user_index], function (err, id) {
-                        console.log('User was updated at ' + new Date());
+                else {
+                    user.parkingPlace.freeDates = [];
+                    controller.storage.users.save(user, function (err, id) {
+                        bot.reply(message, 'Your days off were cleaned up.')
                     })
                 }
             }
+        })
+    });
+
+controller.hears(['free (.*)', 'free'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+
+        var days = message.match[1];
+        controller.storage.users.get(message.user, function (err, user) {
+
+            if (!user) {
+                bot.reply(message, 'You have not registered yet.' +
+                    'Use ready to share [parking number] command.\n');
+            }
+            else {
+                if (user.parkingPlace.status == 'free' && typeof(days) == 'undefined') {
+                    bot.reply(message, 'You parking place is already free for today.');
+                }
+                else {
+                    if (user.parkingPlace.status == 'busy' && user.parkingPlace.tenant != '' && typeof(days) == 'undefined') {
+                        bot.reply(message, 'It is not possible to change parking place status since '+user.parkingPlace.tenant+' has already rent it for today.');
+                    }
+                    else {
+                        if (user.parkingPlace.status == 'busy' && user.parkingPlace.tenant != '' && typeof(days) != 'undefined') {
+                            bot.reply(message, 'Please, use vacations [YYYY-MM-DD] [YYYY-MM-DD] command to plan your days off.\n' +
+                                               user.parkingPlace.tenant + ' has already rent your place for today.');
+                        }
+
+                        else {
+                            {
+                                if (typeof(days) != 'undefined') {
+                                    var fromDate = moment();
+                                    var toDate = moment();
+                                    toDate.add(days, 'days');
+                                    user.parkingPlace.freeDates.push(
+                                        {
+                                            from: fromDate,
+                                            to: toDate
+                                        }
+                                    );
+                                }
+
+                                user.parkingPlace.status = 'free';
+                                user.parkingPlace.freeDates = optimizeDates(user.parkingPlace.freeDates);
+
+                                controller.storage.users.save(user, function (err, id) {
+                                    if (typeof (days) == 'undefined') {
+                                        bot.reply(message, 'Got it.\nYour parking place is free for today.');
+                                    }
+                                    else {
+                                        bot.reply(message, 'Got it.\nYour parking place is free for today and ' + (days - 1) + ' next days.');
+                                    }
+
+                                    controller.storage.teams.get(message.team, function (err, team) {
+                                        if (team) {
+                                            if (team.userQueue.length > 0) {
+                                                for (var i in team.userQueue) {
+                                                    bot.reply(team.userQueue[i], 'Parking place is available! Use park me command to book it for today.');
+                                                }
+                                                team.userQueue = [];
+                                                controller.storage.teams.save(team, function (err, id) {
+                                                    console.log('Queue was updated.');
+                                                });
+                                            }
+                                            else {
+                                                console.log('Queue is empty at the moment.');
+                                            }
+                                        }
+                                        else {
+                                            console.log('No queue was created even once.');
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+controller.hears(['park me'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+        controller.storage.users.all(function (err, users) {
+            if (users) {
+                for (var i in users) {
+                    if (users[i].parkingPlace.status == 'free') {
+
+                        users[i].parkingPlace.status = 'busy';
+                        users[i].parkingPlace.tenant = message.user;
+
+                        for (var j in users[i].parkingPlace.freeDates) {
+                            if (moment().diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') == 0 &&
+                                moment().diff(moment(users[i].parkingPlace.freeDates[j].to), 'days') == 0) {
+                                users[i].parkingPlace.freeDates.splice(j, 1);
+                            }
+                        }
+
+                        controller.storage.users.save(users[i], function (err, id) {
+                            bot.reply(message, 'Hey, lucky, you can park at ' + users[i].parkingPlace.number + '!');
+                        });
+
+                        return;
+                    }
+                }
+            }
+
+            controller.storage.teams.get(message.team, function (err, team) {
+                if (!team) {
+                    team = {
+                        id: message.team,
+                        userQueue: [message]
+                    };
+                    controller.storage.teams.save(team, function (err, id) {
+                        bot.reply(message, 'You was added to queue and will be notified if there are free parking places.');
+                    })
+                }
+                else {
+                    team.userQueue.push(message);
+                    controller.storage.teams.save(team, function (err, id) {
+                        bot.reply(message, 'You was added to queue and will be notified if there are free parking places.');
+                    })
+                }
+            });
+        });
+    });
+
+controller.hears(['status'],
+    'direct_message,direct_mention,mention', function (bot, message) {
+        controller.storage.users.all(function (err, users) {
+            if (users) {
+                var freeParkingPlaces = 0;
+                for (var i in users) {
+                    if (users[i].parkingPlace.status == 'free') {
+                        freeParkingPlaces = freeParkingPlaces + 1;
+                    }
+                }
+                bot.reply(message, 'Current number of free parking places is ' + freeParkingPlaces + '.');
+            }
+            else {
+                bot.reply(message, 'No users share there parking places.');
+            }
+        })
+    });
+
+var j = schedule.scheduleJob('0 1 * * *', function () {
+    controller.storage.users.all(function (err, users) {
+        if (users) {
+            for (var i in users) {
+                if (users[i].parkingPlace.status == 'free') {
+                    users[i].parkingPlace.status = 'busy';
+                    users[i].parkingPlace.tenant = '';
+                }
+                else {
+                    if (users[i].parkingPlace.tenant != '') {
+                        users[i].parkingPlace.tenant = '';
+                    }
+                }
+
+                var currentDate = moment();
+                for (var j in users[i].parkingPlace.freeDates) {
+                    if (currentDate.diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') >= 0 &&
+                        currentDate.diff(moment(users[i].status.free_dates[j].to), 'days') <= 0) {
+                        users[i].parkingPlace.status = 'free';
+                    }
+                }
+
+                controller.storage.users.save(users[i], function (err, id) {
+                    console.log('User ' + users[i].id + ' was updated at ' + new Date() + '.');
+                })
+            }
         }
     });
 
-    controller.storage.teams.all(function (err, all_team_data) {
-                
-        if (all_team_data && all_team_data[0].hasOwnProperty('userQueue')) {
-            all_team_data[0].userQueue = [];
-            controller.storage.teams.save(all_team_data[0], function (err, id) {
-                console.log('Queue was cleared at ' + new Date());
+    controller.storage.teams.all(function (err, teams) {
+        if (teams) {
+            teams[0].userQueue = [];
+            controller.storage.teams.save(teams[0], function (err, id) {
+                console.log('Queue was cleaned up at ' + new Date() + '.');
             });
         }
-        else
-        {
-            console.log('Queue was not updated at ' + new Date());
+        else {
+            console.log('Queue was not updated at ' + new Date() + '.');
         }
-        
-    });
 
+    });
 });
 
 controller.hears(['help'],
@@ -340,12 +412,12 @@ controller.hears(['help'],
 
         bot.reply(message,
             'if you are a parking place owner: \n' +
-            '\n ready [parking number] | to register as a parking place peer' +
-            '\n not ready | to stop sharing the parking place' +
+            '\n ready to share [parking number] | to register as a parking place peer' +
+            '\n stop sharing | to stop sharing the parking place' +
             '\n free [number of days?] | to set status of your parking place to free for today or for number of days (include today)' +
             '\n vacations [yyyy-mm-dd] [yyyy-mm-dd] | to set status of your parking place to free for ceratin period' +
             '\n my info | to send information about you' +
-            '\n cancel | to clear your free dates\n\n' +
+            '\n cancel vacations | to clear your free dates\n\n' +
             'if you are a parking place seeker: \n' +
             '\n park me | to receive a parking place' +
             '\n status | to check is there are any free parking places');
@@ -358,37 +430,5 @@ controller.hears(['creators'],
             'Grigory Nitsenko \n' +
             'Elizaveta Belokopytova \n' +
             'Andrey Kalinin');
-    })
+    });
 
-controller.hears(['admin'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-
-        bot.reply(message,
-            (function () {
-                var number_of_users = 0;
-                var number_of_parkings = 0;
-                var queue_length = 0;
-
-                controller.storage.teams.all(function (err, all_team_data) {
-                    if (all_team_data && all_team_data.hasOwnProperty('userQueue')) {
-                        queue_length = all_team_data.userQueue.length;
-                    }
-                    else {
-                        queue_length = 0;
-                    }
-                });
-
-                controller.storage.users.all(function (err, all_user_data) {
-                    number_of_users = all_user_data.length;
-                    for (var i in all_user_data) {
-                        if (all_user_data[i].parking_number != 'no parking number') {
-                            number_of_parkings = number_of_parkings + 1;
-                        }
-                    }
-                });
-
-                return 'Number of users is ' + number_of_users + '\n' +
-                    'Number of parkings is ' + number_of_parkings + '\n' +
-                    'Length of queue is ' + queue_length;
-            })()
-        );});

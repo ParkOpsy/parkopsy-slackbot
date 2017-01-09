@@ -1,3 +1,10 @@
+## Run
+```bash
+npm install
+
+node slack_bot.js
+```
+
 ## Workflow
 ### If you are a parking place peer
 Firstly register your parking place with <b>ready [your parking place number]</b> command.
