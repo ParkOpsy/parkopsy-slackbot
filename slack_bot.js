@@ -10,7 +10,7 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: ''
+    token: process.env.TOKEN
 }).startRTM();
 
 function createUser(userID, parkingNumber) {
