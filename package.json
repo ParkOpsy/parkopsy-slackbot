@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "ChatOps bot for optimizing parking places in company",
   "main": "./slack_bot.js",
+  "scripts": {
+    "start": "node slack_bot.js"
+  },
   "dependencies": {
     "async": "^2.0.0-rc.5",
     "back": "^1.0.1",
