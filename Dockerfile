@@ -9,4 +9,4 @@ RUN cd /app \
 
 WORKDIR /app
 
-RUN node slack_bot.js 
+ENTRYPOINT ["node", "slack_bot.js"]
