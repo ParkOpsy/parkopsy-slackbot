@@ -10,7 +10,9 @@ var controller = Botkit.slackbot({
 });
 
 var bot = controller.spawn({
-    token: process.env.TOKEN
+    token: process.env.TOKEN,
+    retry: 'Infinity',
+    stale_connection_timeout: 1000
 }).startRTM();
 
 function createUser(userID, parkingNumber) {
