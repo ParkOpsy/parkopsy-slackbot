@@ -1,7 +1,7 @@
 var schedule = require("node-schedule");
 var moment = require('moment');
 
-var Botkit = require('./lib/Botkit.js');
+var Botkit = require('botkit');
 var os = require('os');
 
 var controller = Botkit.slackbot({
