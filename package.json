@@ -4,7 +4,8 @@
   "description": "ChatOps bot for optimizing parking places in company",
   "main": "index.js",
   "scripts": {
-    "launch": "node index.js"
+    "launch": "node index.js",
+    "test": "node spec.runner.js"
   },
   "repository": {
     "type": "git",

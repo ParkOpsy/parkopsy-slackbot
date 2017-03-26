@@ -9,6 +9,8 @@ const controller = Botkit.slackbot({
     json_file_store: './lib/storage/data'
 });
 
+module.exports.controller = controller;
+
 controller.spawn({
     token: process.env.TOKEN,
     retry: 'Infinity',
