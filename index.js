@@ -1,15 +1,15 @@
-var schedule = require("node-schedule");
-var moment = require('moment');
+const schedule = require("node-schedule");
+const moment = require('moment');
 
-var Botkit = require('botkit');
-var os = require('os');
+const Botkit = require('botkit');
+const os = require('os');
 
-var controller = Botkit.slackbot({
+const controller = Botkit.slackbot({
     debug: true,
     json_file_store: './lib/storage/data'
 });
 
-var bot = controller.spawn({
+controller.spawn({
     token: process.env.TOKEN,
     retry: 'Infinity',
     stale_connection_timeout: 1000
@@ -33,23 +33,23 @@ function createParkingPlace(parkingNumber) {
 
 function printDates(dates) {
     dates = optimizeDates(dates);
-    var result = '';
-    for (var i in dates) {
+    let result = '';
+    for (let i in dates) {
         result = result +
-            (dates.length == 1 ? '' : i + '. ') +
+            (dates.length === 1 ? '' : i + '. ') +
             'from ' +
             moment(dates[i].from).format('YYYY MMMM D') +
             ' to ' +
             moment(dates[i].to).format('YYYY MMMM D') +
-            (i == dates.length - 1 ? '' : '\n');
+            (i === dates.length - 1 ? '' : '\n');
     }
     return result;
 }
 
 function optimizeDates(dates) {
-    for (var i = 0; i < dates.length; i++) {
-        for (var j = 0; j < dates.length; j++) {
-            if (j != i) {
+    for (let i = 0; i < dates.length; i++) {
+        for (let j = 0; j < dates.length; j++) {
+            if (j !== i) {
                 // [from j   <from i     >to i     ]to j
                 if (moment(dates[i].from).diff(moment(dates[j].from), 'days') >= 0 &&
                     moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
@@ -90,7 +90,7 @@ function optimizeDates(dates) {
 controller.hears(['ready to share (.*)'],
     'direct_message,direct_mention,mention', function (bot, message) {
 
-        var parkingNumber = message.match[1];
+        const parkingNumber = message.match[1];
 
         controller.storage.users.get(message.user, function (err, user) {
             if (user) {
@@ -141,7 +141,7 @@ controller.hears(['my info'],
                 bot.reply(message,
                     'Your parking number is ' + user.parkingPlace.number + '.\n' +
                     'Its current status is ' + user.parkingPlace.status + '.' +
-                    (user.parkingPlace.tenant != '' ?
+                    (user.parkingPlace.tenant !== '' ?
                     '\nYour tenant for today is ' + user.parkingPlace.tenant + '.' :
                         '') +
                     (user.parkingPlace.freeDates.length > 0 ?
@@ -154,11 +154,11 @@ controller.hears(['my info'],
 
 controller.hears(['vacations (.*)'],
     'direct_message,direct_mention,mention', function (bot, message) {
-        var dates = message.match[1];
-        var pattern = /(\d{4}-\d{2}-\d{2}) (\d{4}-\d{2}-\d{2})/;
+        const dates = message.match[1];
+        const pattern = /(\d{4}-\d{2}-\d{2}) (\d{4}-\d{2}-\d{2})/;
         if (pattern.test(dates)) {
-            var vacations_from = moment(pattern.exec(dates)[1]);
-            var vacations_to = moment(pattern.exec(dates)[2]);
+            const vacations_from = moment(pattern.exec(dates)[1]);
+            const vacations_to = moment(pattern.exec(dates)[2]);
             if (vacations_from.isValid() && vacations_to.isValid()) {
                 if (vacations_to.diff(vacations_from, 'days') > 0) {
                     controller.storage.users.get(message.user, function (err, user) {
@@ -210,7 +210,7 @@ controller.hears(['cancel vacations'],
                     'Use ready to share [parking number] command.\n');
             }
             else {
-                if (user.parkingPlace.freeDates.length == 0) {
+                if (user.parkingPlace.freeDates.length === 0) {
                     bot.reply(message,
                         'You do not have days off.\n' +
                         'Use vacations YYYY-MM-DD YYYY-MM-DD command to add one.')
@@ -228,7 +228,7 @@ controller.hears(['cancel vacations'],
 controller.hears(['free (.*)', 'free'],
     'direct_message,direct_mention,mention', function (bot, message) {
 
-        var days = message.match[1];
+        const days = message.match[1];
         controller.storage.users.get(message.user, function (err, user) {
 
             if (!user) {
@@ -236,24 +236,24 @@ controller.hears(['free (.*)', 'free'],
                     'Use ready to share [parking number] command.\n');
             }
             else {
-                if (user.parkingPlace.status == 'free' && typeof(days) == 'undefined') {
+                if (user.parkingPlace.status === 'free' && typeof(days) === 'undefined') {
                     bot.reply(message, 'You parking place is already free for today.');
                 }
                 else {
-                    if (user.parkingPlace.status == 'busy' && user.parkingPlace.tenant != '' && typeof(days) == 'undefined') {
+                    if (user.parkingPlace.status === 'busy' && user.parkingPlace.tenant !== '' && typeof(days) === 'undefined') {
                         bot.reply(message, 'It is not possible to change parking place status since '+user.parkingPlace.tenant+' has already rent it for today.');
                     }
                     else {
-                        if (user.parkingPlace.status == 'busy' && user.parkingPlace.tenant != '' && typeof(days) != 'undefined') {
+                        if (user.parkingPlace.status === 'busy' && user.parkingPlace.tenant !== '' && typeof(days) !== 'undefined') {
                             bot.reply(message, 'Please, use vacations [YYYY-MM-DD] [YYYY-MM-DD] command to plan your days off.\n' +
                                                user.parkingPlace.tenant + ' has already rent your place for today.');
                         }
 
                         else {
                             {
-                                if (typeof(days) != 'undefined') {
-                                    var fromDate = moment();
-                                    var toDate = moment();
+                                if (typeof(days) !== 'undefined') {
+                                    const fromDate = moment();
+                                    const toDate = moment();
                                     toDate.add(days, 'days');
                                     user.parkingPlace.freeDates.push(
                                         {
@@ -267,7 +267,7 @@ controller.hears(['free (.*)', 'free'],
                                 user.parkingPlace.freeDates = optimizeDates(user.parkingPlace.freeDates);
 
                                 controller.storage.users.save(user, function (err, id) {
-                                    if (typeof (days) == 'undefined') {
+                                    if (typeof (days) === 'undefined') {
                                         bot.reply(message, 'Got it.\nYour parking place is free for today.');
                                     }
                                     else {
@@ -306,15 +306,15 @@ controller.hears(['park me'],
     'direct_message,direct_mention,mention', function (bot, message) {
         controller.storage.users.all(function (err, users) {
             if (users) {
-                for (var i in users) {
-                    if (users[i].parkingPlace.status == 'free') {
+                for (let i in users) {
+                    if (users[i].parkingPlace.status === 'free') {
 
                         users[i].parkingPlace.status = 'busy';
                         users[i].parkingPlace.tenant = message.user;
 
-                        for (var j in users[i].parkingPlace.freeDates) {
-                            if (moment().diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') == 0 &&
-                                moment().diff(moment(users[i].parkingPlace.freeDates[j].to), 'days') == 0) {
+                        for (let j in users[i].parkingPlace.freeDates) {
+                            if (moment().diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') === 0 &&
+                                moment().diff(moment(users[i].parkingPlace.freeDates[j].to), 'days') === 0) {
                                 users[i].parkingPlace.freeDates.splice(j, 1);
                             }
                         }
@@ -352,9 +352,9 @@ controller.hears(['status'],
     'direct_message,direct_mention,mention', function (bot, message) {
         controller.storage.users.all(function (err, users) {
             if (users) {
-                var freeParkingPlaces = 0;
-                for (var i in users) {
-                    if (users[i].parkingPlace.status == 'free') {
+                let freeParkingPlaces = 0;
+                for (let i in users) {
+                    if (users[i].parkingPlace.status === 'free') {
                         freeParkingPlaces = freeParkingPlaces + 1;
                     }
                 }
@@ -366,22 +366,22 @@ controller.hears(['status'],
         })
     });
 
-var j = schedule.scheduleJob('0 1 * * *', function () {
+schedule.scheduleJob('0 1 * * *', function () {
     controller.storage.users.all(function (err, users) {
         if (users) {
-            for (var i in users) {
-                if (users[i].parkingPlace.status == 'free') {
+            for (let i in users) {
+                if (users[i].parkingPlace.status === 'free') {
                     users[i].parkingPlace.status = 'busy';
                     users[i].parkingPlace.tenant = '';
                 }
                 else {
-                    if (users[i].parkingPlace.tenant != '') {
+                    if (users[i].parkingPlace.tenant !== '') {
                         users[i].parkingPlace.tenant = '';
                     }
                 }
 
-                var currentDate = moment();
-                for (var j in users[i].parkingPlace.freeDates) {
+                const currentDate = moment();
+                for (let j in users[i].parkingPlace.freeDates) {
                     if (currentDate.diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') >= 0 &&
                         currentDate.diff(moment(users[i].status.free_dates[j].to), 'days') <= 0) {
                         users[i].parkingPlace.status = 'free';
