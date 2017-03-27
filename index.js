@@ -1,3 +1,8 @@
+const User = require('./user');
+const Owner = require('./owner');
+const Tenant = require('./tenant');
+const ParkingPlace = require('./parkingplace');
+
 const schedule = require("node-schedule");
 const moment = require('moment');
 
@@ -9,146 +14,389 @@ const controller = Botkit.slackbot({
     json_file_store: './lib/storage/data'
 });
 
-module.exports.controller = controller;
-
 controller.spawn({
     token: process.env.TOKEN,
     retry: 'Infinity',
     stale_connection_timeout: 1000
 }).startRTM();
 
-function createUser(userID, parkingNumber) {
-    return {
-        id: userID,
-        parkingPlace: createParkingPlace(parkingNumber)
-    }
-}
+module.exports = controller;
 
-function createParkingPlace(parkingNumber) {
-    return {
-        number: parkingNumber,
-        status: 'busy',
-        freeDates: [],
-        tenant: ''
-    }
-}
-
-function printDates(dates) {
-    dates = optimizeDates(dates);
-    let result = '';
-    for (let i in dates) {
-        result = result +
-            (dates.length === 1 ? '' : i + '. ') +
-            'from ' +
-            moment(dates[i].from).format('YYYY MMMM D') +
-            ' to ' +
-            moment(dates[i].to).format('YYYY MMMM D') +
-            (i === dates.length - 1 ? '' : '\n');
-    }
-    return result;
-}
-
-function optimizeDates(dates) {
-    for (let i = 0; i < dates.length; i++) {
-        for (let j = 0; j < dates.length; j++) {
-            if (j !== i) {
-                // [from j   <from i     >to i     ]to j
-                if (moment(dates[i].from).diff(moment(dates[j].from), 'days') >= 0 &&
-                    moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
-                    moment(dates[i].to).diff(moment(dates[j].to), 'days') <= 0 &&
-                    moment(dates[i].to).diff(moment(dates[j].from), 'days') >= 0) {
-                    console.log('[  <  >  ]');
-                    dates.splice(i, 1);
-                    i = 0;
-                    continue;
-                }
-                // [from j   <from i     ]to j      >to i
-                if (moment(dates[i].from).diff(moment(dates[j].from), 'days') >= 0 &&
-                    moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
-                    moment(dates[i].to).diff(moment(dates[j].to), 'days') >= 0 &&
-                    moment(dates[i].to).diff(moment(dates[j].from), 'days') >= 0) {
-                    console.log('[  <  ]  >');
-                    dates[i].from = dates[j].from;
-                    dates.splice(j, 1);
-                    i = 0;
-                    continue;
-                }
-                // <from i   [from j      >to i     ]to j
-                if (moment(dates[i].from).diff(moment(dates[j].from), 'days') <= 0 &&
-                    moment(dates[i].from).diff(moment(dates[j].to), 'days') <= 0 &&
-                    moment(dates[i].to).diff(moment(dates[j].to), 'days') <= 0 &&
-                    moment(dates[i].to).diff(moment(dates[j].from), 'days') >= 0) {
-                    console.log('<  [  >  ]');
-                    dates[i].to = dates[j].to;
-                    dates.splice(j, 1);
-                    i = 0;
-                }
-            }
-        }
-    }
-    return dates;
-}
-
-controller.hears(['ready to share (.*)'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-
-        const parkingNumber = message.match[1];
-
-        controller.storage.users.get(message.user, function (err, user) {
-            if (user) {
-                user.parkingPlace = createParkingPlace(parkingNumber);
-                controller.storage.users.save(user, function (err, id) {
-                    bot.reply(message,
-                        'Your parking place number was updated.\n' +
-                        'Status is set to busy and free dates are clean up.');
+controller.hears(['sign me up'],
+    'direct_message', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if (typeof data === 'undefined') {
+                bot.startConversation(message, (err, convo) => {
+                    convo.say('Hello there! Remember, you can stop the conversion with *exit* message.');
+                    convo.ask('What is your first name?', [
+                        {
+                            pattern: 'exit',
+                            callback: (response, convo) => {
+                                convo.say('OK, maybe next time!');
+                                convo.next();
+                            }
+                        },
+                        {
+                            pattern: '^[a-zA-Z]+$',
+                            callback: (response, convo) => {
+                                let firstName = response.match[0];
+                                convo.ask('Got you, '+firstName+'! What is your last name?', [
+                                    {
+                                        pattern: 'exit',
+                                        callback: (response, convo) => {
+                                            convo.say('OK, maybe next time!');
+                                            convo.next();
+                                        }
+                                    },
+                                    {
+                                        pattern: '^[a-zA-Z]+$',
+                                        callback: (response, convo) => {
+                                            let lastName = response.match[0];
+                                            convo.ask('Prettiest name I have ever heard! Tell me your phone number, please. (_89xxxxxxxxx_)', [
+                                                {
+                                                    pattern: '89[0-9]{9}',
+                                                    callback: (response, convo) => {
+                                                        let phoneNumber = response.match[0];
+                                                        convo.ask('Thank you! So are you a parking place owner or a tenant? (_owner_/_tenant_)', [
+                                                            {
+                                                                pattern: 'owner',
+                                                                callback: (response, convo) => {
+                                                                    convo.ask('Okey then. What is your parking place number?', [
+                                                                        {
+                                                                            pattern: '[0-9]+',
+                                                                            callback: (response, convo) => {
+                                                                                let owner = new Owner(message, firstName, lastName, phoneNumber, +response.match[0]);
+                                                                                controller.storage.users.save(owner, (err) => {
+                                                                                    if (!err) {
+                                                                                        convo.say('OK, nice to meet you, ' + owner.firstName + '!\n' +
+                                                                                                   'Your account was created.');
+                                                                                        convo.next();
+                                                                                    }
+                                                                                    else {
+                                                                                        convo.say('Opps, something goes wrong! Try again.\n' +
+                                                                                                    'No data was saved so use *sign me up* command once again.');
+                                                                                        convo.next();
+                                                                                    }
+                                                                                });
+                                                                                convo.next();
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            pattern: 'exit',
+                                                                            callback: (response, convo) => {
+                                                                                convo.say('OK, maybe next time!');
+                                                                                convo.next();
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            default: true,
+                                                                            callback: (response, convo) => {
+                                                                                convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                                                                convo.repeat();
+                                                                                convo.next();
+                                                                            }
+                                                                        }
+                                                                    ]);
+                                                                    convo.next();
+                                                                }
+                                                            },
+                                                            {
+                                                                pattern: 'tenant',
+                                                                callback: (response, convo) => {
+                                                                    let tenant = new Tenant(message, firstName, lastName, phoneNumber);
+                                                                    controller.storage.users.save(tenant, (err) => {
+                                                                        if (!err) {
+                                                                            convo.say('OK, nice to meet you, ' + tenant.firstName + '!\n' +
+                                                                                        'Your account was created.');
+                                                                            convo.next();
+                                                                        }
+                                                                        else {
+                                                                            convo.say('Opps, something goes wrong! Try again.\n' +
+                                                                                        'No data was saved so use *sign me up* command once again.');
+                                                                            convo.next();
+                                                                        }
+                                                                    });
+                                                                    convo.next();
+                                                                }
+                                                            },
+                                                            {
+                                                                pattern: 'exit',
+                                                                callback: (response, convo) => {
+                                                                    convo.say('OK, maybe next time!');
+                                                                    convo.next();
+                                                                }
+                                                            },
+                                                            {
+                                                                default: true,
+                                                                callback: (response, convo) => {
+                                                                    convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                                                    convo.repeat();
+                                                                    convo.next();
+                                                                }
+                                                            }
+                                                        ]);
+                                                        convo.next();
+                                                    }
+                                                },
+                                                {
+                                                    pattern: 'exit',
+                                                    callback: (response, convo) => {
+                                                        convo.say('OK, maybe next time!');
+                                                        convo.next();
+                                                    }
+                                                },
+                                                {
+                                                    default: true,
+                                                    callback: (response, convo) => {
+                                                        convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                                        convo.repeat();
+                                                        convo.next();
+                                                    }
+                                                }
+                                            ]);
+                                            convo.next();
+                                        }
+                                    },
+                                    {
+                                        default: true,
+                                        callback: (response, convo) => {
+                                            convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                            convo.repeat();
+                                            convo.next();
+                                        }
+                                    }
+                                ]);
+                                convo.next();
+                            }
+                        },
+                        {
+                            default: true,
+                            callback: (response, convo) => {
+                                convo.say('Sorry, I did not understand you.');
+                                convo.repeat();
+                                convo.next();
+                            }
+                        }
+                    ]);
                 });
             }
             else {
-                user = createUser(message.user, parkingNumber);
-                controller.storage.users.save(user, function (err, id) {
-                    bot.reply(message,
-                        'You was registered.\n' +
-                        'Thanks for be ready to share your parking place number ' + user.parkingPlace.number + '.');
-                });
+                let user = User.fromJSON(data);
+                bot.reply(message,
+                    'We have found your account, ' + user.fullName + '.\n' +
+                    'If you want to update your account, use *update me* command.\n' +
+                    'If you want to remove your account, use *remove account* command.');
             }
+
         });
     });
 
-controller.hears(['stop sharing'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-        controller.storage.users.get(message.user, function (err, user) {
-            if (!user) {
+controller.hears(['update me'],
+    'direct_message', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if (typeof data === 'undefined') {
                 bot.reply(message,
-                    'You have not registered yet.' +
-                    'Use ready to share [parking number] command.\n');
+                    'We have not found your account.\n' +
+                    'If you want to create an account, use *sign me up* command.\n');
             }
             else {
-                controller.storage.users.delete(message.user, function (err) {
-                    bot.reply(message, 'All your user information was removed.');
+                bot.startConversation(message, (err, convo) => {
+                    convo.ask('Okey, '+data.firstName+'. What do you want to update? (_name_, _phone_, _place_)', [
+                        {
+                            pattern: 'name',
+                            callback: (response, convo) => {
+                                convo.ask('What is your full name then? (example: Ivan Ivanov)', [
+
+                                    {
+                                        pattern: 'exit',
+                                        callback: (response, convo) => {
+                                            convo.say('OK, maybe next time!');
+                                            convo.next();
+                                        }
+                                    },
+                                    {
+                                        pattern: '[a-zA-Z]+ [a-zA-Z]+',
+                                        callback: (response, convo) => {
+                                            [data.firstName, data.lastName] = response.match[0].split(' ');
+                                            controller.storage.users.save(data, (err) => {
+                                               if (err) {
+                                                   bot.reply(message,
+                                                       'Opps, something goes wrong! Try again.\n' +
+                                                       'No data was saved so use *update me* command once again.');
+                                               }
+                                               else {
+                                                   bot.reply(message,
+                                                    'Your name was updated successfully.');
+                                               }
+                                            });
+                                            convo.next();
+                                        }
+                                    },
+                                    {
+                                        default: true,
+                                        callback: (response, convo) => {
+                                            convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                            convo.repeat();
+                                            convo.next();
+                                        }
+                                    }
+                                ]);
+                                convo.next();
+                            }
+                        },
+                        {
+                            pattern: 'phone',
+                            callback: (response, convo) => {
+                                convo.ask('Okey, '+data.firstName+'. What is you phone number then?', [
+                                    {
+                                        pattern: '89[0-9]{9}',
+                                        callback: (response, convo) => {
+                                            data.phoneNumber = response.match[0];
+                                            controller.storage.users.save(data, (err) => {
+                                                if (err) {
+                                                    bot.reply(message,
+                                                        'Opps, something goes wrong! Try again.\n' +
+                                                        'No data was saved so use *update me* command once again.');
+                                                }
+                                                else {
+                                                    bot.reply(message,
+                                                        'Your contact phone number was updated successfully.');
+                                                }
+                                            });
+                                            convo.next();
+                                        }
+                                    },
+                                    {
+                                        pattern: 'exit',
+                                        callback: (response, convo) => {
+                                            convo.say('OK, maybe next time!');
+                                            convo.next();
+                                        }
+                                    },
+                                    {
+                                        default: true,
+                                        callback: (response, convo) => {
+                                            convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                            convo.repeat();
+                                            convo.next();
+                                        }
+                                    }
+                                ]);
+                                convo.next();
+                            }
+                        },
+                        {
+                            pattern: 'place',
+                            callback: (response, convo) => {
+                                if (data.userType === 'OWNER') {
+                                    convo.ask('Allright, '+data.firstName+'! What is your parking place number then?', [
+                                        {
+                                            pattern: '[0-9]+',
+                                            callback: (response, convo) => {
+                                                let owner = Owner.fromJSON(data);
+                                                owner.parking = response.match[0];
+                                                controller.storage.users.save(owner, (err) => {
+                                                    if (err) {
+                                                        bot.reply(message,
+                                                            'Opps, something goes wrong! Try again.\n' +
+                                                            'No data was saved so use *update me* command once again.');
+                                                    }
+                                                    else {
+                                                        bot.reply(message,
+                                                            'You parking place number was updated successfully.');
+                                                    }
+                                                });
+                                                convo.next();
+                                            }
+                                        },
+                                        {
+                                            pattern: 'exit',
+                                            callback: (response, convo) => {
+                                                convo.say('OK, maybe next time!');
+                                                convo.next();
+                                            }
+                                        },
+                                        {
+                                            default: true,
+                                            callback: (response, convo) => {
+                                                convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                                convo.repeat();
+                                                convo.next();
+                                            }
+                                        }
+                                    ]);
+                                    convo.next();
+                                }
+                                else {
+                                    convo.say('Sorry, '+data.firstName+', but you have a tenant account and do not have parking place.\n' +
+                                              'Remove you account with *remove account* command and try to create another type of account with *sign me up* command.');
+                                    convo.next();
+                                }
+                            }
+                        },
+                        {
+                            pattern: 'exit',
+                            callback: (response, convo) => {
+                                convo.say('OK, maybe next time!');
+                                convo.next();
+                            }
+                        },
+                        {
+                            default: true,
+                            callback: (response, convo) => {
+                                convo.say('Sorry, I did not understand you. You can send *exit* message in any moment to stop the conversation.');
+                                convo.repeat();
+                                convo.next();
+                            }
+                        }
+                    ])
+                });
+            }
+
+        });
+    });
+
+controller.hears(['remove account'],
+    'direct_message', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if (typeof data === 'undefined') {
+                bot.reply(message,
+                    'You do not have an account.\n' +
+                    'Use *sign me up* command.');
+            }
+            else {
+                controller.storage.users.delete(data, (err) => {
+                    if (typeof err === 'undefined') {
+                        bot.reply(message, 'All your user information was removed.');
+                    }
+                    else {
+                        bot.reply(message,
+                            'Opps, something goes wrong! Try again.\n' +
+                            'No data was saved so use *update me* command once again.')
+                    }
                 });
             }
         });
     });
 
 controller.hears(['my info'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-        controller.storage.users.get(message.user, function (err, user) {
-            if (!user) {
+    'direct_message,direct_mention,mention', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if (typeof data === 'undefined') {
                 bot.reply(message,
-                    'You have not registered yet.\n' +
-                    'Use ready to share [parking number] command.\n' +
-                    'If you want to park then you do not have user info. Just use park me command.');
+                    'You have not signed up yet. ' +
+                    'Use *sign me up* command.\n');
             }
             else {
-                bot.reply(message,
-                    'Your parking number is ' + user.parkingPlace.number + '.\n' +
-                    'Its current status is ' + user.parkingPlace.status + '.' +
-                    (user.parkingPlace.tenant !== '' ?
-                    '\nYour tenant for today is ' + user.parkingPlace.tenant + '.' :
-                        '') +
-                    (user.parkingPlace.freeDates.length > 0 ?
-                    '\nYour days off are\n' + printDates(user.parkingPlace.freeDates) + '.' :
-                        '\nYou do not have days off.'));
+                let user;
+
+                switch(data.userType) {
+                    case 'OWNER': user = Owner.fromJSON(data); break;
+                    case 'TENANT': user = Tenant.fromJSON(data); break;
+                    default: user = User.fromJSON(data); break;
+                }
+
+                bot.reply(message, user.info);
             }
         })
     });
@@ -243,12 +491,12 @@ controller.hears(['free (.*)', 'free'],
                 }
                 else {
                     if (user.parkingPlace.status === 'busy' && user.parkingPlace.tenant !== '' && typeof(days) === 'undefined') {
-                        bot.reply(message, 'It is not possible to change parking place status since '+user.parkingPlace.tenant+' has already rent it for today.');
+                        bot.reply(message, 'It is not possible to change parking place status since ' + user.parkingPlace.tenant + ' has already rent it for today.');
                     }
                     else {
                         if (user.parkingPlace.status === 'busy' && user.parkingPlace.tenant !== '' && typeof(days) !== 'undefined') {
                             bot.reply(message, 'Please, use vacations [YYYY-MM-DD] [YYYY-MM-DD] command to plan your days off.\n' +
-                                               user.parkingPlace.tenant + ' has already rent your place for today.');
+                                user.parkingPlace.tenant + ' has already rent your place for today.');
                         }
 
                         else {
@@ -415,20 +663,14 @@ controller.hears(['help'],
     'direct_message,direct_mention,mention', function (bot, message) {
 
         bot.reply(message,
-            'if you are a parking place owner: \n' +
-            '\n ready to share [parking number] | to register as a parking place peer' +
-            '\n stop sharing | to stop sharing the parking place' +
-            '\n free [number of days?] | to set status of your parking place to free for today or for number of days (include today)' +
-            '\n vacations [yyyy-mm-dd] [yyyy-mm-dd] | to set status of your parking place to free for ceratin period' +
-            '\n my info | to send information about you' +
-            '\n cancel vacations | to clear your free dates\n\n' +
-            'if you are a parking place seeker: \n' +
-            '\n park me | to receive a parking place' +
-            '\n status | to check is there are any free parking places');
+            'To start using ParkOpsy chatbot send *sign me up*\n.' +
+            'To edit your account use *update me*.\n' +
+            'To remove your account use *remove account*.\n' +
+            'To view your account use *my info*.\n');
     });
 
 controller.hears(['creators'],
-    'direct_message,direct_mention,mention', function (bot, message) {
+    'direct_message', function (bot, message) {
 
         bot.reply(message,
             'Grigory Nitsenko \n' +
