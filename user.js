@@ -2,6 +2,8 @@
  * Created by nitseg1 on 3/27/2017.
  */
 
+const ParkingPlace = require('./parkingplace');
+
 /**
  * Class representing a Slack user
  * @class
@@ -10,22 +12,18 @@ class User {
     /**
      * Create a user object
      * @constructs
-     * @param {number} id - ID from a Slack message
+     * @param {string} id - ID from a Slack message
      */
     constructor(id) {
-
+        this.id = id;
     }
-
-    toString = function () {
-
-    };
 
     /**
      * Get the parking place of the user
      * @return {ParkingPlace} A ParkingPlace object representing a parking place of the user
      */
     get parkingPlace() {
-
+        return this.userParkingPlace;
     }
 
     /**
@@ -37,7 +35,6 @@ class User {
      * @return {void}
      */
     set fullName(value) {
-
     }
 
     /**
@@ -45,7 +42,7 @@ class User {
      * @return {string} The full name of the user
      */
     get fullName() {
-
+        return this.userFirstName + ' ' + this.userLastName;
     }
 
     /**
@@ -62,7 +59,7 @@ class User {
      * @return {string} The phone number of the user
      */
     get phone() {
-
+        return this.userPhone;
     }
 
     /**
@@ -79,7 +76,7 @@ class User {
      * @return {string} The email address of the user
      */
     get email() {
-
+        return this.userEmail;
     }
 
     /**
@@ -88,7 +85,7 @@ class User {
      * @return {void}
      */
     set parking(number) {
-
+        this.userParkingPlace = new ParkingPlace(this.id, number);
     }
 
     /**
@@ -96,7 +93,7 @@ class User {
      * @return {number} The number of the user parking place
      */
     get parking() {
-
+        return this.userParkingPlace.number;
     }
 
     /**
@@ -116,7 +113,7 @@ class User {
      * @return {string}
      */
     get car() {
-
+        return this.userVenichle;
     }
 
     /**
@@ -132,7 +129,7 @@ class User {
      * @param period
      * @return {void}
      */
-    addVacationsPeriod = function (period) {
+    addVacationsPeriod(period) {
 
     };
 
@@ -140,7 +137,9 @@ class User {
      * Remove all added vacations period of the user
      * @return {void}
      */
-    clearVacations = function () {
+    clearVacations() {
 
     };
 }
+
+module.exports = User;
