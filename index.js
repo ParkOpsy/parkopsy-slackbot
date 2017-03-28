@@ -21,6 +21,130 @@ controller.spawn({
     stale_connection_timeout: 1000
 }).startRTM();
 
+let globalTick = 0;
+
+schedule.scheduleJob('1 0 * * *', () => {
+    console.log('Job triggered at '+new Date());
+    controller.storage.users.all((err, data) => {
+       if (err) {
+           const ts = new Date();
+           controller.storage.channels.save(
+               {
+                   id: 'scheduleJob' + ++globalTick,
+                   ts: ts,
+                   error: err
+               });
+       }
+       else {
+           if (typeof data === 'undefined' || data.length === 0) {
+               const ts = new Date();
+               controller.storage.channels.save(
+                   {
+                       id: 'scheduleJob' + ++globalTick,
+                       ts: ts,
+                       message: 'No user data in the system',
+                       data: data
+                   });
+           }
+           else {
+               for (let index in data) {
+                   if (data[index].userType === 'OWNER') {
+                       let owner = Owner.fromJSON(data[index]);
+
+                       owner.parkingPlace.placeStatus = 'BUSY';
+                       delete owner.parkingPlace.placeTenant;
+
+                       controller.storage.users.save(owner, (err, id) => {
+                           if (err) {
+                               const ts = new Date();
+                               controller.storage.channels.save(
+                                   {
+                                       id: 'scheduleJob' + ++globalTick,
+                                       ts: ts,
+                                       error: err
+                                   });
+                           }
+                           else {
+                               const ts = new Date();
+                               controller.storage.channels.save(
+                                   {
+                                       id: 'scheduleJob' + ++globalTick,
+                                       ts: ts,
+                                       message: 'User was updated at midnight',
+                                       user: owner
+                                   });
+                           }
+                       })
+                   }
+               }
+           }
+       }
+    });
+
+    controller.storage.teams.all((err, data) => {
+       if (err) {
+           const ts = new Date();
+           controller.storage.channels.save(
+               {
+                   id: 'scheduleJob' + ++globalTick,
+                   ts: ts,
+                   error: err
+               });
+       }
+       else {
+           if (typeof data === 'undefined' || data.length === 0) {
+               const ts = new Date();
+               controller.storage.channels.save(
+                   {
+                       id: 'scheduleJob' + ++globalTick,
+                       ts: ts,
+                       message: 'No team data in the system',
+                       data: data
+                   });
+           }
+           else {
+               if (data.length > 1) {
+                   const ts = new Date();
+                   controller.storage.channels.save(
+                       {
+                           id: 'scheduleJob' + ++globalTick,
+                           ts: ts,
+                           message: 'Somehow team data contains for then 1 JSON files',
+                           data: data
+                       });
+               }
+               else {
+                   let queue = Queue.fromJSON(data[0]);
+
+                   queue.tenants = [];
+
+                   controller.storage.teams.save(queue, (err, id) => {
+                       if (err) {
+                           const ts = new Date();
+                           controller.storage.channels.save(
+                               {
+                                   id: 'scheduleJob' + ++globalTick,
+                                   ts: ts,
+                                   error: err
+                               });
+                       }
+                       else {
+                           const ts = new Date();
+                           controller.storage.channels.save(
+                               {
+                                   id: 'scheduleJob' + ++globalTick,
+                                   ts: ts,
+                                   message: 'Tenants queue was updated successfully at midnight',
+                                   queue: queue
+                               });
+                       }
+                   });
+               }
+           }
+       }
+    });
+});
+
 module.exports = controller;
 
 controller.hears(['sign me up'],
@@ -224,6 +348,14 @@ controller.hears(['update me'],
                                                    bot.reply(message,
                                                        'Opps, something goes wrong! Try again.\n' +
                                                        'No data was saved so use *update me* command once again.');
+
+                                                   const ts = new Date();
+                                                   controller.storage.channels.save(
+                                                       {
+                                                           id: 'update me'  + ++globalTick,
+                                                           ts: ts,
+                                                           error: err
+                                                       });
                                                }
                                                else {
                                                    bot.reply(message,
@@ -258,6 +390,14 @@ controller.hears(['update me'],
                                                     bot.reply(message,
                                                         'Opps, something goes wrong! Try again.\n' +
                                                         'No data was saved so use *update me* command once again.');
+
+                                                    const ts = new Date();
+                                                    controller.storage.channels.save(
+                                                        {
+                                                            id: 'update me' + ++globalTick,
+                                                            ts: ts,
+                                                            error: err
+                                                        });
                                                 }
                                                 else {
                                                     bot.reply(message,
@@ -301,6 +441,14 @@ controller.hears(['update me'],
                                                         bot.reply(message,
                                                             'Opps, something goes wrong! Try again.\n' +
                                                             'No data was saved so use *update me* command once again.');
+
+                                                        const ts = new Date();
+                                                        controller.storage.channels.save(
+                                                            {
+                                                                id: 'update me' + ++globalTick,
+                                                                ts: ts,
+                                                                error: err
+                                                            });
                                                     }
                                                     else {
                                                         bot.reply(message,
@@ -367,13 +515,21 @@ controller.hears(['remove account'],
             }
             else {
                 controller.storage.users.delete(data, (err) => {
-                    if (typeof err === 'undefined') {
+                    if (!err) {
                         bot.reply(message, 'All your user information was removed.');
                     }
                     else {
                         bot.reply(message,
                             'Opps, something goes wrong! Try again.\n' +
-                            'No data was saved so use *update me* command once again.')
+                            'No data was saved so use *update me* command once again.');
+
+                        const ts = new Date();
+                        controller.storage.channels.save(
+                            {
+                                id: 'remove account' + ++globalTick,
+                                ts: ts,
+                                error: err
+                            });
                     }
                 });
             }
@@ -437,7 +593,15 @@ controller.hears(['free'],
                             controller.storage.users.save(owner, (err,id) => {
                                if (err) {
                                    bot.reply(message, 'Ooops! Something goes wrong while updating your parking place status. No effects were applied.\n'+
-                                       'Try again.')
+                                       'Try again.');
+
+                                   const ts = new Date();
+                                   controller.storage.channels.save(
+                                       {
+                                           id: 'free' + ++globalTick,
+                                           ts: ts,
+                                           error: err
+                                       });
                                }
                                else {
                                    bot.reply(message, 'Got you, '+owner.firstName+'! Your parking place is free for today.');
@@ -454,10 +618,22 @@ controller.hears(['free'],
                                               queue.tenants = [];
                                               controller.storage.teams.save(queue, (err,id) => {
                                                  if (err) {
-                                                     console.log('Notifications to tenant were sent but queue was not updated.');
+                                                     const ts = new Date();
+                                                     controller.storage.channels.save(
+                                                         {
+                                                             id: 'free' + ++globalTick,
+                                                             ts: ts,
+                                                             error: err
+                                                         });
                                                  }
                                                  else {
-                                                     console.log('Notifications to tenant were sent and queue was updated.');
+                                                     const ts = new Date();
+                                                     controller.storage.channels.save(
+                                                         {
+                                                             id: 'free' + ++globalTick,
+                                                             ts: ts,
+                                                             message: 'Notifications to tenant were sent and queue was updated.'
+                                                         });
                                                  }
                                               });
                                           }
@@ -501,7 +677,15 @@ controller.hears(['park me'],
                                     controller.storage.users.save(owner, (err, id) => {
                                         if (err) {
                                             bot.reply(message, 'Ooops! Something goes wrong while sending you a parking place number. No effects were applied.\n'+
-                                                               'Try again.')
+                                                               'Try again.');
+
+                                            const ts = new Date();
+                                            controller.storage.channels.save(
+                                                {
+                                                    id: 'park me' + ++globalTick,
+                                                    ts: ts,
+                                                    error: err
+                                                });
                                         }
                                         else {
                                             bot.reply(message, 'Hey, '+tenant.firstName+', you can park at ' + owner.parkingPlace.number + '!\n'+
@@ -529,7 +713,15 @@ controller.hears(['park me'],
                                 controller.storage.teams.save(queue, (err, id) => {
                                     if (err) {
                                         bot.reply(message, 'Ooops! Something goes wrong while adding you to user queue. No effects were applied.\n'+
-                                                           'Try again.')
+                                                           'Try again.');
+
+                                        const ts = new Date();
+                                        controller.storage.channels.save(
+                                            {
+                                                id: 'park me' + ++globalTick,
+                                                ts: ts,
+                                                error: err
+                                            });
                                     }
                                     else {
                                         bot.reply(message, 'You were added to queue and will be notified if there are free parking places.\n'+
@@ -549,8 +741,8 @@ controller.hears(['park me'],
     });
 
 controller.hears(['status'],
-    'direct_message', function (bot, message) {
-        controller.storage.users.all(function (err, data) {
+    'direct_message', (bot, message) => {
+        controller.storage.users.all((err, data) => {
             if (typeof data === 'undefined' || data.length === 0) {
                 bot.reply(message, 'Sorry, no users were found. Try again later.');
             }
