@@ -1,8 +1,9 @@
-const User = require('./user');
-const Owner = require('./owner');
-const Tenant = require('./tenant');
-const Queue = require('./queue');
-const ParkingPlace = require('./parkingplace');
+const User = require('./../classes/user');
+const Owner = require('./../classes/owner');
+const Tenant = require('./../classes/tenant');
+const Queue = require('./../classes/queue');
+const ParkingPlace = require('./../classes/parkingplace');
+const logger = require('./../helpers/logger');
 
 const schedule = require("node-schedule");
 const moment = require('moment');
@@ -21,30 +22,25 @@ controller.spawn({
     stale_connection_timeout: 1000
 }).startRTM();
 
-let globalTick = 0;
-
 schedule.scheduleJob('1 0 * * *', () => {
-    console.log('Job triggered at '+new Date());
+    logger(controller,
+        'scheduledJob',
+        null,
+        'scheduleJob was triggered');
     controller.storage.users.all((err, data) => {
        if (err) {
-           const ts = new Date();
-           controller.storage.channels.save(
-               {
-                   id: 'scheduleJob' + ++globalTick,
-                   ts: ts,
-                   error: err
-               });
+           logger(controller,
+               'scheduledJob',
+               err,
+               'when getting all user data from storage');
        }
        else {
            if (typeof data === 'undefined' || data.length === 0) {
-               const ts = new Date();
-               controller.storage.channels.save(
-                   {
-                       id: 'scheduleJob' + ++globalTick,
-                       ts: ts,
-                       message: 'No user data in the system',
-                       data: data
-                   });
+               logger(controller,
+                   'scheduledJob',
+                   'no user data in the system',
+                   'when getting all user data from storage',
+                   data);
            }
            else {
                for (let index in data) {
@@ -56,23 +52,18 @@ schedule.scheduleJob('1 0 * * *', () => {
 
                        controller.storage.users.save(owner, (err, id) => {
                            if (err) {
-                               const ts = new Date();
-                               controller.storage.channels.save(
-                                   {
-                                       id: 'scheduleJob' + ++globalTick,
-                                       ts: ts,
-                                       error: err
-                                   });
+                               logger(controller,
+                                   'scheduledJob',
+                                   err,
+                                   'when saving owner data to storage',
+                                   owner);
                            }
                            else {
-                               const ts = new Date();
-                               controller.storage.channels.save(
-                                   {
-                                       id: 'scheduleJob' + ++globalTick,
-                                       ts: ts,
-                                       message: 'User was updated at midnight',
-                                       user: owner
-                                   });
+                               logger(controller,
+                                   'scheduledJob',
+                                   null,
+                                   'owner data was successfully updated',
+                                   owner);
                            }
                        })
                    }
@@ -83,35 +74,26 @@ schedule.scheduleJob('1 0 * * *', () => {
 
     controller.storage.teams.all((err, data) => {
        if (err) {
-           const ts = new Date();
-           controller.storage.channels.save(
-               {
-                   id: 'scheduleJob' + ++globalTick,
-                   ts: ts,
-                   error: err
-               });
+           logger(controller,
+               'scheduledJob',
+               err,
+               'when getting all team data from the storage');
        }
        else {
            if (typeof data === 'undefined' || data.length === 0) {
-               const ts = new Date();
-               controller.storage.channels.save(
-                   {
-                       id: 'scheduleJob' + ++globalTick,
-                       ts: ts,
-                       message: 'No team data in the system',
-                       data: data
-                   });
+               logger(controller,
+                   'scheduledJob',
+                   'no team data in the system',
+                   'when getting all user data from the storage',
+                   data);
            }
            else {
                if (data.length > 1) {
-                   const ts = new Date();
-                   controller.storage.channels.save(
-                       {
-                           id: 'scheduleJob' + ++globalTick,
-                           ts: ts,
-                           message: 'Somehow team data contains for then 1 JSON files',
-                           data: data
-                       });
+                   logger(controller,
+                       'scheduledJob',
+                       'team data contains more than 1 json',
+                       'when getting all user data from the storage',
+                       data);
                }
                else {
                    let queue = Queue.fromJSON(data[0]);
@@ -120,23 +102,18 @@ schedule.scheduleJob('1 0 * * *', () => {
 
                    controller.storage.teams.save(queue, (err, id) => {
                        if (err) {
-                           const ts = new Date();
-                           controller.storage.channels.save(
-                               {
-                                   id: 'scheduleJob' + ++globalTick,
-                                   ts: ts,
-                                   error: err
-                               });
+                           logger(controller,
+                               'scheduledJob',
+                               err,
+                               'when saving team data to the storage',
+                               queue);
                        }
                        else {
-                           const ts = new Date();
-                           controller.storage.channels.save(
-                               {
-                                   id: 'scheduleJob' + ++globalTick,
-                                   ts: ts,
-                                   message: 'Tenants queue was updated successfully at midnight',
-                                   queue: queue
-                               });
+                           logger(controller,
+                               'scheduledJob',
+                               null,
+                               'tenants queue was successfully updated',
+                               queue);
                        }
                    });
                }
@@ -144,8 +121,6 @@ schedule.scheduleJob('1 0 * * *', () => {
        }
     });
 });
-
-module.exports = controller;
 
 controller.hears(['sign me up'],
     'direct_message', (bot, message) => {
@@ -349,13 +324,11 @@ controller.hears(['update me'],
                                                        'Opps, something goes wrong! Try again.\n' +
                                                        'No data was saved so use *update me* command once again.');
 
-                                                   const ts = new Date();
-                                                   controller.storage.channels.save(
-                                                       {
-                                                           id: 'update me'  + ++globalTick,
-                                                           ts: ts,
-                                                           error: err
-                                                       });
+                                                   logger(controller,
+                                                       'updateMe',
+                                                       err,
+                                                       'when saving user data to the storage (updating name)',
+                                                       data);
                                                }
                                                else {
                                                    bot.reply(message,
@@ -390,14 +363,11 @@ controller.hears(['update me'],
                                                     bot.reply(message,
                                                         'Opps, something goes wrong! Try again.\n' +
                                                         'No data was saved so use *update me* command once again.');
-
-                                                    const ts = new Date();
-                                                    controller.storage.channels.save(
-                                                        {
-                                                            id: 'update me' + ++globalTick,
-                                                            ts: ts,
-                                                            error: err
-                                                        });
+                                                    logger(controller,
+                                                        'updateMe',
+                                                        err,
+                                                        'when saving user data to the storage (updating phone)',
+                                                        data);
                                                 }
                                                 else {
                                                     bot.reply(message,
@@ -441,14 +411,11 @@ controller.hears(['update me'],
                                                         bot.reply(message,
                                                             'Opps, something goes wrong! Try again.\n' +
                                                             'No data was saved so use *update me* command once again.');
-
-                                                        const ts = new Date();
-                                                        controller.storage.channels.save(
-                                                            {
-                                                                id: 'update me' + ++globalTick,
-                                                                ts: ts,
-                                                                error: err
-                                                            });
+                                                        logger(controller,
+                                                            'updateMe',
+                                                            err,
+                                                            'when saving user data to the storage (updating parking place)',
+                                                            owner);
                                                     }
                                                     else {
                                                         bot.reply(message,
@@ -522,14 +489,11 @@ controller.hears(['remove account'],
                         bot.reply(message,
                             'Opps, something goes wrong! Try again.\n' +
                             'No data was saved so use *update me* command once again.');
-
-                        const ts = new Date();
-                        controller.storage.channels.save(
-                            {
-                                id: 'remove account' + ++globalTick,
-                                ts: ts,
-                                error: err
-                            });
+                        logger(controller,
+                            'removeAccount',
+                            err,
+                            'when deleting user data from the storage',
+                            data);
                     }
                 });
             }
@@ -595,13 +559,11 @@ controller.hears(['free'],
                                    bot.reply(message, 'Ooops! Something goes wrong while updating your parking place status. No effects were applied.\n'+
                                        'Try again.');
 
-                                   const ts = new Date();
-                                   controller.storage.channels.save(
-                                       {
-                                           id: 'free' + ++globalTick,
-                                           ts: ts,
-                                           error: err
-                                       });
+                                   logger(controller,
+                                       'free',
+                                       err,
+                                       'when saving owner data to the storage (setting parkingPlace status to FREE)',
+                                       owner);
                                }
                                else {
                                    bot.reply(message, 'Got you, '+owner.firstName+'! Your parking place is free for today.');
@@ -618,22 +580,18 @@ controller.hears(['free'],
                                               queue.tenants = [];
                                               controller.storage.teams.save(queue, (err,id) => {
                                                  if (err) {
-                                                     const ts = new Date();
-                                                     controller.storage.channels.save(
-                                                         {
-                                                             id: 'free' + ++globalTick,
-                                                             ts: ts,
-                                                             error: err
-                                                         });
+                                                     logger(controller,
+                                                         'free',
+                                                         err,
+                                                         'when saving team data to the storage (cleaning up tenants queue)',
+                                                         queue);
                                                  }
                                                  else {
-                                                     const ts = new Date();
-                                                     controller.storage.channels.save(
-                                                         {
-                                                             id: 'free' + ++globalTick,
-                                                             ts: ts,
-                                                             message: 'Notifications to tenant were sent and queue was updated.'
-                                                         });
+                                                     logger(controller,
+                                                         'free',
+                                                         null,
+                                                         'queue was updated and notifications were sent successfully',
+                                                         queue);
                                                  }
                                               });
                                           }
@@ -678,14 +636,11 @@ controller.hears(['park me'],
                                         if (err) {
                                             bot.reply(message, 'Ooops! Something goes wrong while sending you a parking place number. No effects were applied.\n'+
                                                                'Try again.');
-
-                                            const ts = new Date();
-                                            controller.storage.channels.save(
-                                                {
-                                                    id: 'park me' + ++globalTick,
-                                                    ts: ts,
-                                                    error: err
-                                                });
+                                            logger(controller,
+                                                'parkMe',
+                                                err,
+                                                'when saving owner data to the storage (setting parking place status is BUSY)',
+                                                owner);
                                         }
                                         else {
                                             bot.reply(message, 'Hey, '+tenant.firstName+', you can park at ' + owner.parkingPlace.number + '!\n'+
@@ -715,13 +670,11 @@ controller.hears(['park me'],
                                         bot.reply(message, 'Ooops! Something goes wrong while adding you to user queue. No effects were applied.\n'+
                                                            'Try again.');
 
-                                        const ts = new Date();
-                                        controller.storage.channels.save(
-                                            {
-                                                id: 'park me' + ++globalTick,
-                                                ts: ts,
-                                                error: err
-                                            });
+                                        logger(controller,
+                                            'parkMe',
+                                            err,
+                                            'when saving team data to the storage (adding tenant to the queue)',
+                                            queue);
                                     }
                                     else {
                                         bot.reply(message, 'You were added to queue and will be notified if there are free parking places.\n'+
