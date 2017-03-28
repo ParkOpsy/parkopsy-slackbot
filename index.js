@@ -1,6 +1,7 @@
 const User = require('./user');
 const Owner = require('./owner');
 const Tenant = require('./tenant');
+const Queue = require('./queue');
 const ParkingPlace = require('./parkingplace');
 
 const schedule = require("node-schedule");
@@ -475,76 +476,69 @@ controller.hears(['cancel vacations'],
         })
     });
 
-controller.hears(['free (.*)', 'free'],
-    'direct_message,direct_mention,mention', function (bot, message) {
+controller.hears(['free'],
+    'direct_message', function (bot, message) {
 
-        const days = message.match[1];
-        controller.storage.users.get(message.user, function (err, user) {
-
-            if (!user) {
-                bot.reply(message, 'You have not registered yet.' +
-                    'Use ready to share [parking number] command.\n');
+        controller.storage.users.get(message.user, function (err, data) {
+            if (typeof data === 'undefined') {
+                bot.reply(message,
+                    'You have not signed up yet. ' +
+                    'Use *sign me up* command.\n');
             }
             else {
-                if (user.parkingPlace.status === 'free' && typeof(days) === 'undefined') {
-                    bot.reply(message, 'You parking place is already free for today.');
+                if (data.userType === 'TENANT') {
+                    bot.reply(message,
+                        'You are a tenant.\n'+
+                        'You need to be a parking place owner to use *free* command.')
                 }
                 else {
-                    if (user.parkingPlace.status === 'busy' && user.parkingPlace.tenant !== '' && typeof(days) === 'undefined') {
-                        bot.reply(message, 'It is not possible to change parking place status since ' + user.parkingPlace.tenant + ' has already rent it for today.');
+                    const owner = Owner.fromJSON(data);
+
+                    if (owner.parkingPlace.placeStatus === 'FREE') {
+                        bot.reply(message,
+                            'Your place is already free for today, '+owner.firstName);
                     }
                     else {
-                        if (user.parkingPlace.status === 'busy' && user.parkingPlace.tenant !== '' && typeof(days) !== 'undefined') {
-                            bot.reply(message, 'Please, use vacations [YYYY-MM-DD] [YYYY-MM-DD] command to plan your days off.\n' +
-                                user.parkingPlace.tenant + ' has already rent your place for today.');
+                        if (owner.parkingPlace.placeTenant) {
+                            bot.reply(message,
+                                'Your place is already rent for today.\n'+
+                                'Your tenant is '+owner.parkingPlace.placeTenant.fullName+'.'+
+                                'You can contact him by phone number '+owner.parkingPlace.placeTenant.phoneNumber+'.');
                         }
-
                         else {
-                            {
-                                if (typeof(days) !== 'undefined') {
-                                    const fromDate = moment();
-                                    const toDate = moment();
-                                    toDate.add(days, 'days');
-                                    user.parkingPlace.freeDates.push(
-                                        {
-                                            from: fromDate,
-                                            to: toDate
-                                        }
-                                    );
-                                }
+                            owner.parkingPlace.placeStatus = 'FREE';
 
-                                user.parkingPlace.status = 'free';
-                                user.parkingPlace.freeDates = optimizeDates(user.parkingPlace.freeDates);
+                            controller.storage.users.save(owner, (err,id) => {
+                               if (err) {
+                                   bot.reply(message, 'Ooops! Something goes wrong while updating your parking place status. No effects were applied.\n'+
+                                       'Try again.')
+                               }
+                               else {
+                                   bot.reply(message, 'Got you, '+owner.firstName+'! Your parking place is free for today.');
 
-                                controller.storage.users.save(user, function (err, id) {
-                                    if (typeof (days) === 'undefined') {
-                                        bot.reply(message, 'Got it.\nYour parking place is free for today.');
-                                    }
-                                    else {
-                                        bot.reply(message, 'Got it.\nYour parking place is free for today and ' + (days - 1) + ' next days.');
-                                    }
+                                   controller.storage.teams.get(message.team, (err, data) => {
+                                      if (typeof data !== 'undefined') {
+                                          const queue = Queue.fromJSON(data);
 
-                                    controller.storage.teams.get(message.team, function (err, team) {
-                                        if (team) {
-                                            if (team.userQueue.length > 0) {
-                                                for (var i in team.userQueue) {
-                                                    bot.reply(team.userQueue[i], 'Parking place is available! Use park me command to book it for today.');
-                                                }
-                                                team.userQueue = [];
-                                                controller.storage.teams.save(team, function (err, id) {
-                                                    console.log('Queue was updated.');
-                                                });
-                                            }
-                                            else {
-                                                console.log('Queue is empty at the moment.');
-                                            }
-                                        }
-                                        else {
-                                            console.log('No queue was created even once.');
-                                        }
-                                    });
-                                });
-                            }
+                                          if (queue.tenants.length > 0) {
+                                              for (let tenant of queue.tenants) {
+                                                  bot.reply(tenant.reference, 'Parking place is available.\n'+
+                                                                              'Send *park me* command if you need it. Wish you luck, '+tenant.firstName);
+                                              }
+                                              queue.tenants = [];
+                                              controller.storage.teams.save(queue, (err,id) => {
+                                                 if (err) {
+                                                     console.log('Notifications to tenant were sent but queue was not updated.');
+                                                 }
+                                                 else {
+                                                     console.log('Notifications to tenant were sent and queue was updated.');
+                                                 }
+                                              });
+                                          }
+                                      }
+                                   });
+                               }
+                            });
                         }
                     }
                 }
@@ -553,48 +547,78 @@ controller.hears(['free (.*)', 'free'],
     });
 
 controller.hears(['park me'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-        controller.storage.users.all(function (err, users) {
-            if (users) {
-                for (let i in users) {
-                    if (users[i].parkingPlace.status === 'free') {
-
-                        users[i].parkingPlace.status = 'busy';
-                        users[i].parkingPlace.tenant = message.user;
-
-                        for (let j in users[i].parkingPlace.freeDates) {
-                            if (moment().diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') === 0 &&
-                                moment().diff(moment(users[i].parkingPlace.freeDates[j].to), 'days') === 0) {
-                                users[i].parkingPlace.freeDates.splice(j, 1);
-                            }
-                        }
-
-                        controller.storage.users.save(users[i], function (err, id) {
-                            bot.reply(message, 'Hey, lucky, you can park at ' + users[i].parkingPlace.number + '!');
-                        });
-
-                        return;
-                    }
-                }
+    'direct_message', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if(typeof data === 'undefined') {
+                bot.reply(message,
+                    'You have not signed up yet. ' +
+                    'Use *sign me up* command.\n');
             }
-
-            controller.storage.teams.get(message.team, function (err, team) {
-                if (!team) {
-                    team = {
-                        id: message.team,
-                        userQueue: [message]
-                    };
-                    controller.storage.teams.save(team, function (err, id) {
-                        bot.reply(message, 'You was added to queue and will be notified if there are free parking places.');
-                    })
+            else {
+                if (data.userType === 'OWNER') {
+                    bot.reply(message,
+                        'You are a parking place owner.\n'+
+                        'You need to be a tenant to use *park me* command.')
                 }
                 else {
-                    team.userQueue.push(message);
-                    controller.storage.teams.save(team, function (err, id) {
-                        bot.reply(message, 'You was added to queue and will be notified if there are free parking places.');
-                    })
+                    const tenant = Tenant.fromJSON(data);
+
+                    controller.storage.users.all((err, users) => {
+                        if (typeof users !== 'undefined') {
+                            for (let user of users) {
+                                if (user.userType === 'OWNER' && user.parkingPlace.placeStatus === 'FREE') {
+                                    let owner = Owner.fromJSON(user);
+
+                                    owner.parkingPlace.placeStatus = 'BUSY';
+                                    owner.parkingPlace.placeTenant = tenant;
+
+                                    controller.storage.users.save(owner, (err, id) => {
+                                        if (err) {
+                                            bot.reply(message, 'Ooops! Something goes wrong while sending you a parking place number. No effects were applied.\n'+
+                                                               'Try again.')
+                                        }
+                                        else {
+                                            bot.reply(message, 'Hey, '+tenant.firstName+', you can park at ' + owner.parkingPlace.number + '!\n'+
+                                                               'It is a place of '+owner.fullName+'.\n'+
+                                                               'In case of a question you can contact him by phone number '+owner.phoneNumber+'.');
+                                            bot.reply(owner.message, 'Hello, '+owner.firstName+'!\n'+
+                                                                     'Your parking place was booked by '+tenant.fullName+' for today.\n'+
+                                                                     'In case of a question you can contact him by phone number '+tenant.phoneNumber+'.')
+                                        }
+                                    });
+                                    return;
+                                }
+                            }
+
+                            controller.storage.teams.get(message.team, (err, team) => {
+                                let queue;
+                                if (typeof team === 'undefined') {
+                                    queue = new Queue(message, tenant);
+                                }
+                                else {
+                                    queue = Queue.fromJSON(team);
+                                    queue.tenants.push(tenant);
+                                }
+
+                                controller.storage.teams.save(queue, (err, id) => {
+                                    if (err) {
+                                        bot.reply(message, 'Ooops! Something goes wrong while adding you to user queue. No effects were applied.\n'+
+                                                           'Try again.')
+                                    }
+                                    else {
+                                        bot.reply(message, 'You were added to queue and will be notified if there are free parking places.\n'+
+                                                           'There are '+queue.tenants.length+' users in the queue including you.');
+                                    }
+                                });
+                            });
+                        }
+                        else {
+                            bot.reply(message, 'Oppps! Something goes wrong. No users were found in the system.\n'+
+                                                'Try again later.');
+                        }
+                    });
                 }
-            });
+            }
         });
     });
 
