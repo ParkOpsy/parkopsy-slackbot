@@ -402,84 +402,10 @@ controller.hears(['my info'],
         })
     });
 
-
-controller.hears(['vacations (.*)'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-        const dates = message.match[1];
-        const pattern = /(\d{4}-\d{2}-\d{2}) (\d{4}-\d{2}-\d{2})/;
-        if (pattern.test(dates)) {
-            const vacations_from = moment(pattern.exec(dates)[1]);
-            const vacations_to = moment(pattern.exec(dates)[2]);
-            if (vacations_from.isValid() && vacations_to.isValid()) {
-                if (vacations_to.diff(vacations_from, 'days') > 0) {
-                    controller.storage.users.get(message.user, function (err, user) {
-                        if (!user) {
-                            bot.reply(message,
-                                'You have not registered yet.' +
-                                'Use ready to share [parking number] command.\n');
-                        }
-                        else {
-
-                            user.parkingPlace.freeDates.push(
-                                {
-                                    from: vacations_from,
-                                    to: vacations_to
-                                }
-                            );
-
-                            user.parkingPlace.freeDates = optimizeDates(user.parkingPlace.freeDates);
-
-                            controller.storage.users.save(user, function (err, id) {
-                                bot.reply(message, 'Got it. I will remember your days off.');
-                            })
-                        }
-                    });
-                }
-                else {
-                    bot.reply(message, 'Dates format is incorrect.\n' +
-                        'Vacations start ' + vacations_from.format('MMMM Do YYYY') +
-                        ' must be earlier than end ' + vacations_to.format('MMMM Do YYYY') + '.');
-                }
-            }
-            else {
-                bot.reply(message, 'Dates format is incorrect.\n' +
-                    'Use vacations YYYY-MM-DD YYYY-MM-DD.');
-            }
-        }
-        else {
-            bot.reply(message, 'Dates format is incorrect.\n' +
-                'Use vacations YYYY-MM-DD YYYY-MM-DD.');
-        }
-    });
-
-controller.hears(['cancel vacations'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-        controller.storage.users.get(message.user, function (err, user) {
-            if (!user) {
-                bot.reply(message,
-                    'You have not registered yet.' +
-                    'Use ready to share [parking number] command.\n');
-            }
-            else {
-                if (user.parkingPlace.freeDates.length === 0) {
-                    bot.reply(message,
-                        'You do not have days off.\n' +
-                        'Use vacations YYYY-MM-DD YYYY-MM-DD command to add one.')
-                }
-                else {
-                    user.parkingPlace.freeDates = [];
-                    controller.storage.users.save(user, function (err, id) {
-                        bot.reply(message, 'Your days off were cleaned up.')
-                    })
-                }
-            }
-        })
-    });
-
 controller.hears(['free'],
-    'direct_message', function (bot, message) {
+    'direct_message', (bot, message) => {
 
-        controller.storage.users.get(message.user, function (err, data) {
+        controller.storage.users.get(message.user, (err, data) => {
             if (typeof data === 'undefined') {
                 bot.reply(message,
                     'You have not signed up yet. ' +
@@ -623,65 +549,44 @@ controller.hears(['park me'],
     });
 
 controller.hears(['status'],
-    'direct_message,direct_mention,mention', function (bot, message) {
-        controller.storage.users.all(function (err, users) {
-            if (users) {
-                let freeParkingPlaces = 0;
-                for (let i in users) {
-                    if (users[i].parkingPlace.status === 'free') {
-                        freeParkingPlaces = freeParkingPlaces + 1;
-                    }
-                }
-                bot.reply(message, 'Current number of free parking places is ' + freeParkingPlaces + '.');
+    'direct_message', function (bot, message) {
+        controller.storage.users.all(function (err, data) {
+            if (typeof data === 'undefined' || data.length === 0) {
+                bot.reply(message, 'Sorry, no users were found. Try again later.');
             }
             else {
-                bot.reply(message, 'No users share there parking places.');
+                let freeParkingPlaces = 0;
+                let placeOwners = 0;
+                let placeTenants = 0;
+                let tenantsInQueue = 0;
+
+                for (let index in data) {
+                    let user = User.fromJSON(data[index]);
+                    if (user.userType === 'OWNER') {
+                        placeOwners = placeOwners + 1;
+                        if (user.parkingPlace.placeStatus === 'FREE') {
+                            freeParkingPlaces = freeParkingPlaces + 1;
+                        }
+                    }
+                    else {
+                        placeTenants = placeTenants + 1;
+                    }
+                }
+
+                controller.storage.teams.get(message.team, (err, data) => {
+                   if (typeof data !== 'undefined') {
+                       let queue = Queue.fromJSON(data);
+                       tenantsInQueue = queue.tenants.length;
+                   }
+
+                   bot.reply(message, 'Parking place owners: '+placeOwners+'\n'+
+                                      'Tenants: '+placeTenants+'\n'+
+                                      'Free parking places: '+freeParkingPlaces+'\n'+
+                                      'Tenants in queue: '+tenantsInQueue)
+                });
             }
         })
     });
-
-schedule.scheduleJob('0 1 * * *', function () {
-    controller.storage.users.all(function (err, users) {
-        if (users) {
-            for (let i in users) {
-                if (users[i].parkingPlace.status === 'free') {
-                    users[i].parkingPlace.status = 'busy';
-                    users[i].parkingPlace.tenant = '';
-                }
-                else {
-                    if (users[i].parkingPlace.tenant !== '') {
-                        users[i].parkingPlace.tenant = '';
-                    }
-                }
-
-                const currentDate = moment();
-                for (let j in users[i].parkingPlace.freeDates) {
-                    if (currentDate.diff(moment(users[i].parkingPlace.freeDates[j].from), 'days') >= 0 &&
-                        currentDate.diff(moment(users[i].status.free_dates[j].to), 'days') <= 0) {
-                        users[i].parkingPlace.status = 'free';
-                    }
-                }
-
-                controller.storage.users.save(users[i], function (err, id) {
-                    console.log('User ' + users[i].id + ' was updated at ' + new Date() + '.');
-                })
-            }
-        }
-    });
-
-    controller.storage.teams.all(function (err, teams) {
-        if (teams) {
-            teams[0].userQueue = [];
-            controller.storage.teams.save(teams[0], function (err, id) {
-                console.log('Queue was cleaned up at ' + new Date() + '.');
-            });
-        }
-        else {
-            console.log('Queue was not updated at ' + new Date() + '.');
-        }
-
-    });
-});
 
 controller.hears(['help'],
     'direct_message,direct_mention,mention', function (bot, message) {
@@ -690,7 +595,10 @@ controller.hears(['help'],
             'To start using ParkOpsy chatbot send *sign me up*\n.' +
             'To edit your account use *update me*.\n' +
             'To remove your account use *remove account*.\n' +
-            'To view your account use *my info*.\n');
+            'To view your account use *my info*.\n\n'+
+            'To receive a parking place use *park me*.\n'+
+            'To share your place for today use *free*.\n\n'+
+            'To receive system current status use *status*.');
     });
 
 controller.hears(['creators'],

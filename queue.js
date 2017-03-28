@@ -8,8 +8,9 @@ class Queue {
     constructor(message, tenant) {
         if(typeof message !== 'undefined') {
             this.id = message.team;
+            this.tenants = [];
             if (typeof tenant !== 'undefined') {
-                this.tenants = [tenant];
+                this.tenants.push(tenant);
             }
         }
     }
