@@ -12,32 +12,30 @@ const Tenant = require('./tenant');
  */
 class ParkingPlace {
 
-    /**
-     * Create a parking place
-     * @constructs
-     * @param {Owner} owner - Place owner
-     * @param {number} number - Number of the parking place
-     */
-    constructor(owner, number) {
-        this.placeOwner = owner;
-        this.placeNumber = number;
-        this.placeStatus = 'BUSY';
-        this.placeFreeDates = [];
-        this.placeTenant = null;
+
+    constructor(ownerID, placeNumber) {
+        if (typeof ownerID !== 'undefined' && typeof placeNumber !== 'undefined') {
+            this.placeOwner = ownerID;
+            this.placeNumber = placeNumber;
+            this.placeStatus = 'BUSY';
+            this.placeFreeDates = [];
+        }
     }
 
-    /**
-     * Get the parking places status for today or for the certain date
-     * @param {Date} [date] - The date to check the parking place status
-     * @return {boolean} - Returns true if the parking place is busy and false if it is free.
-     */
-    getStatus(date) {
-        if (typeof date === 'undefined') {
-            return this.placeStatus === 'BUSY';
-        }
-        else {
 
+    static fromJSON(data) {
+        let parkingPlaceInstance = new ParkingPlace;
+
+        for (let prop in data) {
+            if (prop === 'placeTenant') {
+                parkingPlaceInstance[prop] = Tenant.fromJSON(data[prop]);
+            }
+            else {
+                parkingPlaceInstance[prop] = data[prop];
+            }
         }
+
+        return parkingPlaceInstance;
     }
 }
 

@@ -7,11 +7,11 @@ const ParkingPlace = require('./parkingplace');
 
 class Owner extends User {
 
-    constructor(message, firstName, lastName, phoneNumber, number) {
+    constructor(message, firstName, lastName, phoneNumber, parkingNumber) {
         super(message, firstName, lastName, phoneNumber);
         this.userType = 'OWNER';
-        if (typeof number !== 'undefined') {
-            this.parkingPlace = new ParkingPlace(message.user, number);
+        if (typeof parkingNumber !== 'undefined') {
+            this.parkingPlace = new ParkingPlace(message.user, parkingNumber);
         }
     }
 
@@ -65,7 +65,12 @@ class Owner extends User {
         let userInstance = new Owner;
 
         for (let prop in data) {
-            userInstance[prop] = data[prop];
+            if (prop === 'parkingPlace') {
+                userInstance[prop] = ParkingPlace.fromJSON(data[prop]);
+            }
+            else {
+                userInstance[prop] = data[prop];
+            }
         }
         return userInstance;
     }
