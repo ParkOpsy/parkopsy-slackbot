@@ -40,5 +40,7 @@ If there are no parking places available you are added to user queue and receive
 	to receive a parking place	
 * <b>status</b> 
     to see the system status
+* <b>vacations start_date end_date</b>
+    to add vacations period
 * <b>help</b> 
     to see available commands 

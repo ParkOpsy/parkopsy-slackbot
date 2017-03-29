@@ -5,6 +5,9 @@
 const User = require('./user');
 const ParkingPlace = require('./parkingplace');
 
+const moment = require('moment');
+require('twix');
+
 class Owner extends User {
 
     constructor(message, firstName, lastName, phoneNumber, parkingNumber) {
@@ -16,15 +19,34 @@ class Owner extends User {
     }
 
     get info() {
-        return 'Your full name is '+this.fullName+'.\n' +
-                'Your phone number is '+this.phoneNumber+'.\n'+
-                'You own the parking place with '+this.parkingPlace.placeNumber+' number.\n' +
-                'It is '+this.parkingPlace.placeStatus+' for today.\n'+
-            (this.parkingPlace.placeTenant?
-                     'Your tenant for today is '+this.parkingPlace.placeTenant.fullName+'.\n'+
-                    +'You can contact him by mobile phone '+this.parkingPlace.placeTenant.phoneNumber + '.\n'
-                        :
-                    '');
+        return 'Your full name is ' + this.fullName + '.\n' +
+            'Your phone number is ' + this.phoneNumber + '.\n' +
+            'You own the parking place with ' + this.parkingPlace.placeNumber + ' number.\n' +
+            'It is ' + this.parkingPlace.placeStatus + ' for today.\n\n' +
+            ((this.parkingPlace && this.parkingPlace.placeTenant)?
+                'Your tenant for today is ' + this.parkingPlace.placeTenant.firstName + ' '+ this.parkingPlace.placeTenant.lastName + '.\n' +
+                + this.parkingPlace.placeTenant.phoneNumber + ' - you can contact him with mobile phone.\n'
+                :
+                '') +
+            ((this.parkingPlace && this.parkingPlace.placeFreeDates && this.parkingPlace.placeFreeDates.length > 0)?
+                'You have vacations:\n' + ((dates) => {
+                    if (dates) {
+                        let result = '';
+                        for (let i in dates) {
+                            if (dates[i] &&
+                                dates[i].hasOwnProperty('_oStart') &&
+                                dates[i].hasOwnProperty('_oEnd')) {
+                                result = result + (+i + 1) + moment.twix(dates[i]._oStart, dates[i]._oEnd).format({hideTime: true}) + '\n';
+                            }
+                        }
+                        return result;
+                    }
+                    else {
+                        return '_Sorry, an error occured while printing your vacation periods._';
+                    }
+                })(this.parkingPlace.placeFreeDates)
+                :
+                '');
     }
 
     /**
@@ -35,31 +57,6 @@ class Owner extends User {
     set parking(number) {
         this.userParkingPlace = new ParkingPlace(this.id, number);
     }
-
-    /**
-     * Get prettified description of the user vacations.
-     * @return {string}
-     */
-    get vacations() {
-        
-    }
-
-    /**
-     * Add a time period for the user vacations
-     * @param period
-     * @return {void}
-     */
-    addVacationsPeriod(period) {
-
-    };
-
-    /**
-     * Remove all added vacations period of the user
-     * @return {void}
-     */
-    clearVacations() {
-
-    };
 
     static fromJSON(data) {
         let userInstance = new Owner;
