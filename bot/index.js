@@ -669,7 +669,7 @@ controller.hears(['my info'],
         })
     });
 
-controller.hears(['free'],
+controller.hears(['^free$'],
     'direct_message', (bot, message) => {
 
         controller.storage.users.get(message.user, (err, data) => {
@@ -722,7 +722,7 @@ controller.hears(['free'],
                                             if (queue.tenants.length > 0) {
                                                 for (let tenant of queue.tenants) {
                                                     bot.reply(tenant.reference, 'Parking place is available.\n' +
-                                                        'Send *park me* command if you need it. Wish you luck, ' + tenant.firstName);
+                                                        'Send *park me* command if you need it. Wish you luck, ' + tenant.firstName +'!');
                                                 }
                                                 queue.tenants = [];
                                                 controller.storage.teams.save(queue, (err, id) => {
@@ -904,6 +904,148 @@ controller.hears(['park me'],
                                 'Try again later.');
                         }
                     });
+                }
+            }
+        });
+    });
+
+controller.hears(['^undo rent$'],
+    'direct_message', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if (typeof data === 'undefined') {
+                bot.reply(message,
+                    'You have not signed up yet. ' +
+                    'Use *sign me up* command.\n');
+            }
+            else {
+                if (data.userType === 'OWNER') {
+                    bot.reply(message,
+                        'You are a parking place owner.\n' +
+                        'You need to be a tenant to use *undo rent* command.')
+                }
+                else {
+                    const tenant = Tenant.fromJSON(data);
+
+                    controller.storage.users.all((err, data) => {
+                        if (typeof data === 'undefined' || data.length === 0) {
+                            bot.reply(message, 'Sorry, no users were found. Try again later.');
+                        }
+                        else {
+                            const user = data.find(
+                                (user) => {
+                                    return user &&
+                                        user.userType === 'OWNER' &&
+                                        user.parkingPlace &&
+                                        user.parkingPlace.placeTenant &&
+                                        user.parkingPlace.placeTenant.id === tenant.id;
+                                }
+                            );
+                            if (user) {
+                                const placeProvider = Owner.fromJSON(user);
+
+                                placeProvider.parkingPlace.placeStatus = 'FREE';
+                                delete placeProvider.parkingPlace.placeTenant;
+
+                                controller.storage.users.save(placeProvider, (err) => {
+                                   if (err) {
+                                       bot.reply(message, 'Ooops! Something goes wrong while saving data to the storage. Try again later.');
+                                       logger(controller,
+                                            'undorent',
+                                            err,
+                                            'when saving owner data to the storage',
+                                            placeProvider);
+                                   }
+                                   else {
+                                       bot.reply(message, 'I have canceled your reservation and informed '+placeProvider.fullName+' about that.');
+
+                                       bot.reply(placeProvider.reference, 'Hi, '+placeProvider.firstName+'!\n'+tenant.fullName+' have canceled his reservation so your place is free again.');
+
+                                       controller.storage.teams.get(message.team, (err, data) => {
+                                           if (typeof data !== 'undefined') {
+                                               const queue = Queue.fromJSON(data);
+
+                                               if (queue.tenants.length > 0) {
+                                                   for (let tenant of queue.tenants) {
+                                                       bot.reply(tenant.reference, 'Parking place is available.\n' +
+                                                           'Send *park me* command if you need it. Wish you luck, ' + tenant.firstName +'!');
+                                                   }
+                                                   queue.tenants = [];
+                                                   controller.storage.teams.save(queue, (err, id) => {
+                                                       if (err) {
+                                                           logger(controller,
+                                                               'free',
+                                                               err,
+                                                               'when saving team data to the storage (cleaning up tenants queue)',
+                                                               queue);
+                                                       }
+                                                       else {
+                                                           logger(controller,
+                                                               'free',
+                                                               null,
+                                                               'queue was updated and notifications were sent successfully',
+                                                               queue);
+                                                       }
+                                                   });
+                                               }
+                                           }
+                                       });
+                                   }
+                                });
+                            }
+                            else {
+                                bot.reply(message, 'Sorry, '+tenant.firstName+', but I have not found your place reservation.'+
+                                                    'Are you sure that you have rent a place for today?');
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+controller.hears(['^undo free$'],
+    'direct_message', (bot, message) => {
+        controller.storage.users.get(message.user, (err, data) => {
+            if (typeof data === 'undefined') {
+                bot.reply(message,
+                    'You have not signed up yet. ' +
+                    'Use *sign me up* command.\n');
+            }
+            else {
+                if (data.userType === 'TENANT') {
+                    bot.reply(message,
+                        'You are a tenant.\n' +
+                        'You need to be an owner to use *undo free* command.')
+                }
+                else {
+                    const owner = Owner.fromJSON(data);
+
+                    if (owner.parkingPlace && owner.parkingPlace.placeStatus === 'FREE') {
+                        owner.parkingPlace.placeStatus = 'BUSY';
+
+                        controller.storage.users.save(owner, (err) => {
+                            if (err) {
+                                bot.reply(message, 'Ooops! Something goes wrong while saving data to the storage. Try again later.');
+                                logger(controller,
+                                    'undofree',
+                                    err,
+                                    'when saving owner data to the storage',
+                                    owner);
+                            }
+                            else {
+                                bot.reply(message, 'OK, '+owner.firstName+', your parking place status is set to BUSY again.');
+                            }
+                        });
+                    }
+                    else {
+                        if (owner.parkingPlace && owner.parkingPlace.placeTenant) {
+                            bot.reply(message, 'Sorry, '+owner.firstName+', but you place has been already rent by '+owner.parkingPlace.placeTenant.fullName+' for today.\n'+
+                                owner.parkingPlace.placeTenant.phoneNumber + ' - you can contact him by phone in case you need it back')
+                        }
+                        else {
+                            bot.reply(message, 'Your parking place is BUSY already, '+owner.firstName+'! Do not be so worried :).');
+                        }
+                    }
                 }
             }
         });
