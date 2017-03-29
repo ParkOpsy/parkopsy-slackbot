@@ -1100,7 +1100,9 @@ controller.hears(['help'],
             'To remove your account use *remove account*.\n' +
             'To view your account use *my info*.\n\n' +
             'To receive a parking place use *park me*.\n' +
-            'To share your place for today use *free*.\n\n' +
+            'To cancel a parking place reservation use *undo rent*.\n\n' +
+            'To share your place for today use *free*.\n' +
+            'To cancel your parking place sharing for today *undo free*.\n\n' +
             'To add vacations period use *vacations YYYY-MM-DD YYYY-MM-DD*.\n\n' +
             'To receive system current status use *status*.');
     });

@@ -38,9 +38,11 @@ If there are no parking places available you are added to user queue and receive
 	to share your parking place for today
 * <b>park me</b>
 	to receive a parking place	
-* <b>status</b> 
-    to see the system status
+* <b>undo rent</b> and <b>undo free</b>
+    to cancel your reservation as a tenant or place sharing as an owner
 * <b>vacations start_date end_date</b>
     to add vacations period
+* <b>status</b> 
+    to see the system status
 * <b>help</b> 
     to see available commands 
