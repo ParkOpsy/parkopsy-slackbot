@@ -36,7 +36,7 @@ class Owner extends User {
                             if (dates[i] &&
                                 dates[i].hasOwnProperty('_oStart') &&
                                 dates[i].hasOwnProperty('_oEnd')) {
-                                result = result + (+i + 1) + moment.twix(dates[i]._oStart, dates[i]._oEnd).format({hideTime: true}) + '\n';
+                                result = result + (+i + 1) + '. ' + moment.twix(dates[i]._oStart, dates[i]._oEnd).format({hideTime: true}) + '\n';
                             }
                         }
                         return result;
